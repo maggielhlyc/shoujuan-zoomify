@@ -1,49 +1,64 @@
+<!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>高其佩长卷 - 43寸 4K 数字展陈</title>
-        <script src="./openseadragon-bin-2.2.1/openseadragon.js"></script>
-        <script src="./handscrollviewer1.js"></script>
-        <script src="./HandscrollViewerDemo1DziImages.js"></script>
-
-        <style>
-            body {
-                margin: 0;
-                padding: 0;
-                background-color: black; /* 纯黑背景，完美融入 4K 屏 */
-                overflow: hidden; /* 隐藏滚动条 */
-            }
-            /* 设定画卷容器：针对 4K 竖屏优化 */
-            #handscrollviewer-main {
-                width: 100%;
-                height: 1500px; /* 在 4K 竖屏上的理想显示高度 */
-                margin-top: 1000px; /* 垂直居中调整，你可以根据视觉效果微调这个值 */
-                background-color: black;
-            }
-        </style>
-
-        <script>
-            var gaoViewer;
-            window.onload = function() {
-                // 加载高其佩长卷
-                gaoViewer = new HandscrollViewer("gaoqipei", "handscrollviewer-main");
-
-                // --- 自动播放核心设置 ---
-                // 设置滚动速度：1.0 极慢，10.0 极快。建议 2.0 左右最适合赏画
-                gaoViewer.setAutoScrollSpeedSetting(2.0);
-
-                // 延迟 2 秒后自动开始向左滚动（即开卷）
-                setTimeout(function() {
-                    gaoViewer.startAutoScrollLeft();
-                }, 2000);
-
-                // 禁用右键和拖拽干扰
-                document.body.oncontextmenu = function (e) { e.preventDefault(); };
-            }
-        </script>
-    </head>
+<head>
+    <meta charset="utf-8">
+    <title>高其佩指墨长卷 - 4K 数字展陈</title>
+    <script src="../handscrollviewer1.js"></script>
+    <script src="../openseadragon-bin-2.2.1/openseadragon.min.js"></script>
     
-    <body>
-        <div id="handscrollviewer-main"></div>
-    </body>
+    <style>
+        /* 1. 打造博物馆黑匣子环境 */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000000; /* 纯黑背景，与木质边框融为一体 */
+            overflow: hidden; /* 隐藏浏览器滚动条 */
+        }
+
+        /* 2. 针对 43 寸 4K 屏优化的容器 */
+        #handscrollviewer-main {
+            width: 100vw;
+            height: 100vh; /* 撑满整个 43 寸屏幕高度 */
+            background-color: #000000;
+        }
+
+        /* 3. 隐藏所有碍眼的按钮，只留纯净画面 */
+        .openseadragon-container {
+            background-color: #000000 !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="handscrollviewer-main"></div>
+
+    <script>
+        window.onload = function() {
+            // 4. 初始化播放器
+            var viewer = new HandscrollViewer({
+                id: "handscrollviewer-main",
+                // 终极绝对路径，解决所有读取报错
+                tileSources: ["https://maggielhlyc.github.io/shoujuan-zoomify/ImageProperties.xml"],
+                
+                // 自动播放设置
+                autoScroll: true,         // 开启自动开卷
+                autoScrollSpeed: 0.1,     // 滚动速度 (4K屏建议 0.1-0.2，越小越慢越优雅)
+                autoScrollDirection: "right-to-left", // 从右向左开卷，符合古人习惯
+                
+                // 画面交互设置
+                showNavigationControl: false, // 隐藏左上角控制按钮，保持纯净
+                immediateRender: true,
+                visibilityRatio: 1.0,
+                constrainDuringPan: true,
+                
+                // 缩放设置：确保 1146 像素高的画在 4K 屏上居中
+                defaultZoomLevel: 1, 
+                minZoomLevel: 0.5,
+                maxZoomLevel: 5
+            });
+
+            console.log("高其佩长卷已成功加载，准备首映！");
+        };
+    </script>
+</body>
 </html>
