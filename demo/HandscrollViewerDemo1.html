@@ -2,8 +2,8 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩指墨长卷 - 4K 纯净直连版</title>
-    <script src="../openseadragon-bin-2.2.1/openseadragon.min.js"></script>
+    <title>高其佩指墨长卷 - 4K 博物馆级展陈</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
         #viewer { width: 100vw; height: 100vh; }
@@ -12,39 +12,41 @@
 <body>
     <div id="viewer"></div>
     <script>
-        // 1. 初始化引擎（直接对接高其佩 21119 像素底稿）
+        // 2. 直接喂入你刚才验证成功的 XML 地址
+        var xmlPath = "https://maggielhlyc.github.io/shoujuan-zoomify/ImageProperties.xml";
+
         var viewer = OpenSeadragon({
             id: "viewer",
-            // 按钮图标路径
-            prefixUrl: "../openseadragon-bin-2.2.1/images/", 
-            tileSources: {
-                type: 'zoomifytileservice',
-                width: 21119,
-                height: 1146,
-                tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/'
-            },
-            showNavigationControl: false, // 隐藏所有按钮，保持画面纯净
-            mouseNavEnabled: true,        // 允许鼠标缩放
-            showNavigator: false,
-            constrainDuringPan: true,
-            defaultZoomLevel: 1.5,        // 初始缩放（针对 4K 屏微调）
-            visibilityRatio: 1
+            prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+            tileSources: xmlPath, // 直接指向 XML，新版引擎会自动识别
+            showNavigationControl: false, 
+            mouseNavEnabled: true,
+            defaultZoomLevel: 1.2, // 针对 43 寸竖屏自动适配比例
+            minZoomImageRatio: 1,
+            visibilityRatio: 1,
+            constrainDuringPan: true
         });
 
-        // 2. 自动滚动逻辑：让长卷像流水一样在 43 寸大屏上滑动
+        // 3. 丝滑自动开卷逻辑
         viewer.addHandler('open', function() {
-            console.log("画卷已成功挂载！开始自动开卷...");
+            console.log("高其佩长卷已就绪，正在开启丝滑滚动...");
             
+            // 每 30 毫秒平移一点点，创造电影般的推拉感
             setInterval(function() {
                 var currentPos = viewer.viewport.getCenter();
-                // 0.0001 是滚动速度，觉得快了就改成 0.00005，觉得慢了就改大
-                var newX = currentPos.x + 0.00015; 
+                // 这里的 0.0001 是速度，可以在 43 寸屏上根据视觉微调
+                var newX = currentPos.x + 0.00012; 
                 
-                // 滚到头了就回到起点重新开始
-                if (newX > 1.2) { newX = -0.2; } 
+                // 循环播放：滚到底后跳回开头
+                if (newX > 1.5) { newX = -0.5; } 
                 
                 viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
-            }, 40); // 每 40 毫秒移动一次，视觉非常丝滑
+            }, 30); 
+        });
+
+        // 如果加载失败，在控制台提示
+        viewer.addHandler('open-failed', function(event) {
+            console.error("加载失败，请检查文件名大小写或网络：", event.message);
         });
     </script>
 </body>
