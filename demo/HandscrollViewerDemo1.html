@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩指墨长卷 - 4K 交互展陈版</title>
+    <title>高其佩指墨长卷 - 4K 终极版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
@@ -32,9 +32,13 @@
                 type: 'zoomifytileservice',
                 width: 21119,
                 height: 1146,
-                // 【核心修改点】加上 /demo/，因为你的图在 demo 文件夹里
+                // 【核心确认点】：这里已经指向了 demo 文件夹，末尾带斜杠
                 tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/demo/'
             },
+            // 禁用点击缩放，防止点击暂停时画面乱跳
+            gestureSettingsMouse: { clickToZoom: false },
+            gestureSettingsTouch: { clickToZoom: false },
+            
             showNavigationControl: false, 
             defaultZoomLevel: 1.0,
             visibilityRatio: 1,
@@ -42,26 +46,26 @@
         });
 
         viewer.addHandler('open', function() {
-            console.log("高其佩长卷已就绪。点击屏幕可暂停。");
+            console.log("高其佩长卷已就绪。路径：/demo/ 方向：从右向左。");
             
             setInterval(function() {
                 if (!isPaused) {
                     var currentPos = viewer.viewport.getCenter();
                     
-                    // 【方向修正】如果现在是从左往右滚（反了），请把下面的 + 改成 - 
-                    // 现在是 +，理论上画卷会向左滑动（符合手卷观看习惯）
+                    // 【确认点】：使用减号（-），确保画卷是从右侧缓缓拉出
                     var newX = currentPos.x - 0.00012; 
                     
-                    if (newX > 1.2) { newX = -0.1; } 
+                    // 循环逻辑：滚到左边头了就跳回右边起点
+                    if (newX < -0.1) { newX = 1.1; } 
                     
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
                 }
             }, 30); 
         });
 
+        // 处理暂停逻辑
         var viewerElement = document.getElementById('viewer');
         var indicator = document.getElementById('status-indicator');
-
         viewerElement.addEventListener('click', function() {
             isPaused = !isPaused;
             indicator.innerText = isPaused ? "已暂停（再次点击播放）" : "点击屏幕：暂停/播放";
