@@ -2,47 +2,46 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩指墨长卷 - 4K数字首映</title>
+    <title>高其佩长卷 - 4K 终极版</title>
     <script src="../handscrollviewer1.js"></script>
     <script src="../openseadragon-bin-2.2.1/openseadragon.min.js"></script>
     
     <style>
-        /* 营造极致的博物馆黑匣子氛围 */
         body { margin: 0; padding: 0; background-color: #000000; overflow: hidden; }
-        #handscrollviewer-main { 
-            width: 100vw; 
-            height: 100vh; /* 撑满 43 寸屏幕 */
-            background-color: #000000; 
-        }
-        /* 隐藏所有多余按钮，只留纯净画面 */
-        .openseadragon-container { background-color: #000000 !important; }
+        #handscrollviewer-main { width: 100vw; height: 100vh; background-color: #000000; }
     </style>
 </head>
 <body>
-
     <div id="handscrollviewer-main"></div>
 
     <script>
         window.onload = function() {
-            // 初始化播放器
+            // 直接定义 TileSource，不再让插件自己去猜
+            var myTileSource = {
+                type: 'zoomifytileservice',
+                width: 21119,
+                height: 1146,
+                // 重点：这里必须指向包含 ImageProperties.xml 的那个【文件夹】路径，且末尾加斜杠
+                tilesUrl: "https://maggielhlyc.github.io/shoujuan-zoomify/"
+            };
+
             var viewer = new HandscrollViewer({
                 id: "handscrollviewer-main",
-                // 使用绝对路径，彻底解决“读取0”或“Url未定义”的报错
-                tileSources: ["https://maggielhlyc.github.io/shoujuan-zoomify/ImageProperties.xml"],
+                tileSources: [myTileSource], // 使用数组包裹对象
                 
-                // 自动化设置：专为 43 寸竖屏打造
-                autoScroll: true,               // 开启自动匀速开卷
-                autoScrollSpeed: 0.12,          // 建议速度，0.12 在 4K 屏上非常优雅
-                autoScrollDirection: "right-to-left", // 从右向左，符合手卷开启习惯
+                // 自动播放设置
+                autoScroll: true,
+                autoScrollSpeed: 0.1, 
+                autoScrollDirection: "right-to-left",
                 
-                // 视觉纯净度设置
-                showNavigationControl: false,   // 隐藏控制栏
-                immediateRender: true,
+                // 基础显示设置
+                showNavigationControl: false,
+                defaultZoomLevel: 1,
                 visibilityRatio: 1.0,
-                constrainDuringPan: true,
-                defaultZoomLevel: 1.2           // 初始稍微放大一点，撑满横向感
+                constrainDuringPan: true
             });
-            console.log("高其佩指墨长卷：4K 自动化播映已就绪");
+
+            console.log("正在通过绝对路径加载高其佩长卷...");
         };
     </script>
 </body>
