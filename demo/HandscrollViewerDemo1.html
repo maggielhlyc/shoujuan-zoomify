@@ -2,48 +2,47 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩指墨长卷 - 43寸4K首映</title>
-    <script src="https://maggielhlyc.github.io/shoujuan-zoomify/handscrollviewer1.js"></script>
-    <script src="https://maggielhlyc.github.io/shoujuan-zoomify/openseadragon-bin-2.2.1/openseadragon.min.js"></script>
+    <title>高其佩指墨长卷 - 4K数字首映</title>
+    <script src="../handscrollviewer1.js"></script>
+    <script src="../openseadragon-bin-2.2.1/openseadragon.min.js"></script>
     
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #000000;
-            overflow: hidden;
+        /* 营造极致的博物馆黑匣子氛围 */
+        body { margin: 0; padding: 0; background-color: #000000; overflow: hidden; }
+        #handscrollviewer-main { 
+            width: 100vw; 
+            height: 100vh; /* 撑满 43 寸屏幕 */
+            background-color: #000000; 
         }
-        #handscrollviewer-main {
-            width: 100vw;
-            height: 100vh;
-            background-color: #000000;
-        }
+        /* 隐藏所有多余按钮，只留纯净画面 */
+        .openseadragon-container { background-color: #000000 !important; }
     </style>
 </head>
 <body>
+
     <div id="handscrollviewer-main"></div>
 
     <script>
         window.onload = function() {
-            // 2. 移除中括号，直接使用字符串路径，这是最古老也最稳的写法
+            // 初始化播放器
             var viewer = new HandscrollViewer({
                 id: "handscrollviewer-main",
-                tileSources: "https://maggielhlyc.github.io/shoujuan-zoomify/ImageProperties.xml",
+                // 使用绝对路径，彻底解决“读取0”或“Url未定义”的报错
+                tileSources: ["https://maggielhlyc.github.io/shoujuan-zoomify/ImageProperties.xml"],
                 
-                // 3. 自动开卷参数
-                autoScroll: true,
-                autoScrollSpeed: 0.1,
-                autoScrollDirection: "right-to-left",
+                // 自动化设置：专为 43 寸竖屏打造
+                autoScroll: true,               // 开启自动匀速开卷
+                autoScrollSpeed: 0.12,          // 建议速度，0.12 在 4K 屏上非常优雅
+                autoScrollDirection: "right-to-left", // 从右向左，符合手卷开启习惯
                 
-                // 4. 4K屏纯净显示设置
-                showNavigationControl: false,
+                // 视觉纯净度设置
+                showNavigationControl: false,   // 隐藏控制栏
                 immediateRender: true,
                 visibilityRatio: 1.0,
                 constrainDuringPan: true,
-                defaultZoomLevel: 1
+                defaultZoomLevel: 1.2           // 初始稍微放大一点，撑满横向感
             });
-            
-            console.log("正在尝试从云端加载高其佩 21119 像素长卷...");
+            console.log("高其佩指墨长卷：4K 自动化播映已就绪");
         };
     </script>
 </body>
