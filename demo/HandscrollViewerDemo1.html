@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩指墨长卷 - 4K 博物馆级展陈</title>
+    <title>高其佩指墨长卷 - 43寸4K首映</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
@@ -12,41 +12,39 @@
 <body>
     <div id="viewer"></div>
     <script>
-        // 2. 直接喂入你刚才验证成功的 XML 地址
-        var xmlPath = "https://maggielhlyc.github.io/shoujuan-zoomify/ImageProperties.xml";
+        // 因为 B 链接通了，说明 ImageProperties.xml 就在 HTML 旁边
+        // 直接写名字即可，绝对不会报 404
+        var xmlPath = "ImageProperties.xml"; 
 
         var viewer = OpenSeadragon({
             id: "viewer",
             prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-            tileSources: xmlPath, // 直接指向 XML，新版引擎会自动识别
-            showNavigationControl: false, 
+            tileSources: xmlPath, 
+            showNavigationControl: false, // 隐藏按钮，追求极致纯净
             mouseNavEnabled: true,
-            defaultZoomLevel: 1.2, // 针对 43 寸竖屏自动适配比例
-            minZoomImageRatio: 1,
+            defaultZoomLevel: 1.2,        // 针对 43 寸竖屏自动适配
             visibilityRatio: 1,
             constrainDuringPan: true
         });
 
-        // 3. 丝滑自动开卷逻辑
+        // 丝滑自动播放逻辑
         viewer.addHandler('open', function() {
-            console.log("高其佩长卷已就绪，正在开启丝滑滚动...");
+            console.log("高其佩长卷加载成功！正在缓缓开卷...");
             
-            // 每 30 毫秒平移一点点，创造电影般的推拉感
             setInterval(function() {
                 var currentPos = viewer.viewport.getCenter();
-                // 这里的 0.0001 是速度，可以在 43 寸屏上根据视觉微调
+                // 这里的 0.00012 是速度，你可以根据 43 寸屏的体感微调
                 var newX = currentPos.x + 0.00012; 
                 
-                // 循环播放：滚到底后跳回开头
-                if (newX > 1.5) { newX = -0.5; } 
+                // 循环逻辑：滚到底后平滑回到开头
+                if (newX > 1.3) { newX = -0.3; } 
                 
                 viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
             }, 30); 
         });
 
-        // 如果加载失败，在控制台提示
-        viewer.addHandler('open-failed', function(event) {
-            console.error("加载失败，请检查文件名大小写或网络：", event.message);
+        viewer.addHandler('open-failed', function(e) {
+            console.error("哎呀，还是没拉动：", e.message);
         });
     </script>
 </body>
