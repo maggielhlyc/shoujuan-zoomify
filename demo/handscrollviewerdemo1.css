@@ -36,10 +36,10 @@ div.external-show-with-id-button {
 }
 
 #handscrollviewer-1-div {
-    background-color:black;
-    height:600px;
-    margin-top:15px;
-    margin-bottom:30px
+    background-color: black;
+    height: 1200px;           /* 把 600px 改为 1200px，画卷在 43 寸屏上会大一倍，更震撼 */
+    margin-top: 15px;
+    margin-bottom: 30px;
 }
 
 #readme-message {
