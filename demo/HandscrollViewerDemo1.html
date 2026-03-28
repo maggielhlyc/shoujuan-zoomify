@@ -2,46 +2,63 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩长卷 - 4K 终极版</title>
+    <title>高其佩长卷 - 4K 极客修复版</title>
     <script src="../handscrollviewer1.js"></script>
     <script src="../openseadragon-bin-2.2.1/openseadragon.min.js"></script>
     
     <style>
         body { margin: 0; padding: 0; background-color: #000000; overflow: hidden; }
-        #handscrollviewer-main { width: 100vw; height: 100vh; background-color: #000000; }
+        #handscrollviewer-main { 
+            width: 100vw; 
+            height: 100vh; 
+            background-color: #000000; 
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
     </style>
 </head>
 <body>
     <div id="handscrollviewer-main"></div>
 
     <script>
+        // 1. 强制使用绝对路径
+        var rootUrl = "https://maggielhlyc.github.io/shoujuan-zoomify/";
+
         window.onload = function() {
-            // 直接定义 TileSource，不再让插件自己去猜
-            var myTileSource = {
-                type: 'zoomifytileservice',
-                width: 21119,
-                height: 1146,
-                // 重点：这里必须指向包含 ImageProperties.xml 的那个【文件夹】路径，且末尾加斜杠
-                tilesUrl: "https://maggielhlyc.github.io/shoujuan-zoomify/"
-            };
+            try {
+                // 2. 构造一个绝对不会出错的数据源
+                var source = {
+                    type: 'zoomifytileservice',
+                    width: 21119,
+                    height: 1146,
+                    tilesUrl: rootUrl // 必须指向含有 TileGroup 文件夹的根目录
+                };
 
-            var viewer = new HandscrollViewer({
-                id: "handscrollviewer-main",
-                tileSources: [myTileSource], // 使用数组包裹对象
-                
-                // 自动播放设置
-                autoScroll: true,
-                autoScrollSpeed: 0.1, 
-                autoScrollDirection: "right-to-left",
-                
-                // 基础显示设置
-                showNavigationControl: false,
-                defaultZoomLevel: 1,
-                visibilityRatio: 1.0,
-                constrainDuringPan: true
-            });
+                // 3. 延迟 500 毫秒初始化，避开“加载中”的崩溃期
+                setTimeout(function() {
+                    var viewer = new HandscrollViewer({
+                        id: "handscrollviewer-main",
+                        // 强制以数组形式传递
+                        tileSources: [source], 
+                        
+                        // 自动滚动设置
+                        autoScroll: true,
+                        autoScrollSpeed: 0.12,
+                        autoScrollDirection: "right-to-left",
+                        
+                        // 适配 43 寸竖屏
+                        showNavigationControl: false,
+                        defaultZoomLevel: 1,
+                        constrainDuringPan: true,
+                        visibilityRatio: 1.0
+                    });
+                    console.log("首映开始！");
+                }, 500);
 
-            console.log("正在通过绝对路径加载高其佩长卷...");
+            } catch (e) {
+                console.error("启动失败，详细原因：", e);
+            }
         };
     </script>
 </body>
