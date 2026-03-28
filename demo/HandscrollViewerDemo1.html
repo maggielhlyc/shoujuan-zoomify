@@ -7,15 +7,13 @@
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
         #viewer { width: 100vw; height: 100vh; cursor: pointer; }
-        
-        /* 暂停时的文字提示（可选） */
         #status-indicator {
             position: absolute;
             top: 20px;
             right: 20px;
             color: rgba(255, 255, 255, 0.4);
             font-size: 14px;
-            pointer-events: none; /* 不挡住点击 */
+            pointer-events: none;
             transition: opacity 0.3s;
         }
     </style>
@@ -25,9 +23,8 @@
     <div id="status-indicator">点击屏幕：暂停/播放</div>
 
     <script>
-        var isPaused = false; // 暂停状态开关
+        var isPaused = false; 
 
-        // 1. 初始化引擎
         var viewer = OpenSeadragon({
             id: "viewer",
             prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
@@ -35,7 +32,8 @@
                 type: 'zoomifytileservice',
                 width: 21119,
                 height: 1146,
-                tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/'
+                // 【核心修改点】加上 /demo/，因为你的图在 demo 文件夹里
+                tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/demo/'
             },
             showNavigationControl: false, 
             defaultZoomLevel: 1.0,
@@ -43,18 +41,17 @@
             constrainDuringPan: true
         });
 
-        // 2. 自动滚动逻辑
         viewer.addHandler('open', function() {
             console.log("高其佩长卷已就绪。点击屏幕可暂停。");
             
             setInterval(function() {
-                if (!isPaused) { // 只有非暂停状态才滚动
+                if (!isPaused) {
                     var currentPos = viewer.viewport.getCenter();
                     
-                    // 方向修正：通过【增加】x 的值，让“镜头”向右走，从而让“画卷”向左开卷
+                    // 【方向修正】如果现在是从左往右滚（反了），请把下面的 + 改成 - 
+                    // 现在是 +，理论上画卷会向左滑动（符合手卷观看习惯）
                     var newX = currentPos.x + 0.00012; 
                     
-                    // 循环播放逻辑
                     if (newX > 1.2) { newX = -0.1; } 
                     
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
@@ -62,8 +59,6 @@
             }, 30); 
         });
 
-        // 3. 点击控制：点击画面任何地方切换暂停/播放
-        // 专门针对 43 寸大屏，不需要按钮，直接点屏幕就行
         var viewerElement = document.getElementById('viewer');
         var indicator = document.getElementById('status-indicator');
 
@@ -71,15 +66,6 @@
             isPaused = !isPaused;
             indicator.innerText = isPaused ? "已暂停（再次点击播放）" : "点击屏幕：暂停/播放";
             indicator.style.opacity = isPaused ? "1" : "0.4";
-            console.log(isPaused ? "已暂停" : "继续播放");
-        });
-
-        // 同时也支持键盘空格键暂停（如果你接了键盘）
-        window.addEventListener('keydown', function(e) {
-            if (e.code === "Space") {
-                isPaused = !isPaused;
-                e.preventDefault();
-            }
         });
     </script>
 </body>
