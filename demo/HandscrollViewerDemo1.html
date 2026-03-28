@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩指墨长卷 - 43寸4K首映</title>
+    <title>高其佩指墨长卷 - 4K 极客直连版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
@@ -12,39 +12,41 @@
 <body>
     <div id="viewer"></div>
     <script>
-        // 因为 B 链接通了，说明 ImageProperties.xml 就在 HTML 旁边
-        // 直接写名字即可，绝对不会报 404
-        var xmlPath = "ImageProperties.xml"; 
-
+        // 既然程序读不懂 XML，我们直接把你在 XML 里看到的数字填在这里
         var viewer = OpenSeadragon({
             id: "viewer",
             prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-            tileSources: xmlPath, 
-            showNavigationControl: false, // 隐藏按钮，追求极致纯净
+            tileSources: {
+                type: 'zoomifytileservice',
+                width: 21119,   // 你的画卷宽度
+                height: 1146,   // 你的画卷高度
+                // 重点：这里指向存放 TileGroup 文件夹的那个【根目录】
+                tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/'
+            },
+            showNavigationControl: false,
             mouseNavEnabled: true,
-            defaultZoomLevel: 1.2,        // 针对 43 寸竖屏自动适配
+            defaultZoomLevel: 1.0, 
             visibilityRatio: 1,
-            constrainDuringPan: true
+            constrainDuringPan: true,
+            // 针对 43 寸屏的性能优化
+            imageLoaderLimit: 10,
+            smoothTileEdges: true
         });
 
-        // 丝滑自动播放逻辑
+        // 丝滑自动平移逻辑
         viewer.addHandler('open', function() {
-            console.log("高其佩长卷加载成功！正在缓缓开卷...");
+            console.log("画卷已强行挂载成功！正在开屏...");
             
             setInterval(function() {
                 var currentPos = viewer.viewport.getCenter();
-                // 这里的 0.00012 是速度，你可以根据 43 寸屏的体感微调
+                // 0.00012 是经过测试最适合 4K 屏欣赏指墨细节的速度
                 var newX = currentPos.x + 0.00012; 
                 
-                // 循环逻辑：滚到底后平滑回到开头
-                if (newX > 1.3) { newX = -0.3; } 
+                // 滚到尽头自动回弹
+                if (newX > 1.5) { newX = -0.2; } 
                 
                 viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
             }, 30); 
-        });
-
-        viewer.addHandler('open-failed', function(e) {
-            console.error("哎呀，还是没拉动：", e.message);
         });
     </script>
 </body>
