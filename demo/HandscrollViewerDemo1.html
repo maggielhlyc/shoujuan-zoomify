@@ -2,70 +2,84 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩指墨长卷 - 4K 博物馆级首映</title>
+    <title>高其佩指墨长卷 - 4K 交互展陈版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
-        /* 营造博物馆黑匣子展陈效果 */
-        body { 
-            margin: 0; 
-            padding: 0; 
-            background-color: #000000; 
-            overflow: hidden; 
-        }
-        /* 撑满 43 寸大屏 */
-        #viewer { 
-            width: 100vw; 
-            height: 100vh; 
-            background-color: #000000; 
+        body { margin: 0; background: #000; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
+        #viewer { width: 100vw; height: 100vh; cursor: pointer; }
+        
+        /* 暂停时的文字提示（可选） */
+        #status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 14px;
+            pointer-events: none; /* 不挡住点击 */
+            transition: opacity 0.3s;
         }
     </style>
 </head>
 <body>
-
     <div id="viewer"></div>
+    <div id="status-indicator">点击屏幕：暂停/播放</div>
 
     <script>
-        // 初始化 OpenSeadragon 引擎
+        var isPaused = false; // 暂停状态开关
+
+        // 1. 初始化引擎
         var viewer = OpenSeadragon({
             id: "viewer",
-            // 使用在线图标，确保 UI 纯净
             prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
             tileSources: {
                 type: 'zoomifytileservice',
-                width: 21119, // 高其佩长卷原始尺寸
+                width: 21119,
                 height: 1146,
-                // 重点！既然你搬家了，这就是正确的“门牌号”
-                tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/demo/' 
+                tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/'
             },
-            showNavigationControl: false, // 隐藏按钮，保持画卷纯净
-            mouseNavEnabled: true,        // 允许手动缩放查看细节
-            defaultZoomLevel: 1.0,        // 初始缩放比例
+            showNavigationControl: false, 
+            defaultZoomLevel: 1.0,
             visibilityRatio: 1,
-            constrainDuringPan: true,
-            imageLoaderLimit: 10,         // 针对大屏优化加载速度
-            smoothTileEdges: true
+            constrainDuringPan: true
         });
 
-        // 丝滑自动开卷逻辑
+        // 2. 自动滚动逻辑
         viewer.addHandler('open', function() {
-            console.log("高其佩指墨长卷已成功挂载！正在开屏...");
+            console.log("高其佩长卷已就绪。点击屏幕可暂停。");
             
-            // 每 30 毫秒平移一点点，创造流水般的观感
             setInterval(function() {
-                var currentPos = viewer.viewport.getCenter();
-                // 0.00012 是速度，你可以根据 43 寸屏的视觉感微调这个数字
-                var newX = currentPos.x + 0.00012; 
-                
-                // 自动循环：滚到尽头后自动回到开头
-                if (newX > 1.5) { newX = -0.2; } 
-                
-                viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
+                if (!isPaused) { // 只有非暂停状态才滚动
+                    var currentPos = viewer.viewport.getCenter();
+                    
+                    // 方向修正：通过【增加】x 的值，让“镜头”向右走，从而让“画卷”向左开卷
+                    var newX = currentPos.x + 0.00012; 
+                    
+                    // 循环播放逻辑
+                    if (newX > 1.2) { newX = -0.1; } 
+                    
+                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
+                }
             }, 30); 
         });
 
-        // 容错处理
-        viewer.addHandler('open-failed', function(event) {
-            console.error("加载失败，请检查 demo 文件夹内是否有 TileGroup0 文件夹：", event.message);
+        // 3. 点击控制：点击画面任何地方切换暂停/播放
+        // 专门针对 43 寸大屏，不需要按钮，直接点屏幕就行
+        var viewerElement = document.getElementById('viewer');
+        var indicator = document.getElementById('status-indicator');
+
+        viewerElement.addEventListener('click', function() {
+            isPaused = !isPaused;
+            indicator.innerText = isPaused ? "已暂停（再次点击播放）" : "点击屏幕：暂停/播放";
+            indicator.style.opacity = isPaused ? "1" : "0.4";
+            console.log(isPaused ? "已暂停" : "继续播放");
+        });
+
+        // 同时也支持键盘空格键暂停（如果你接了键盘）
+        window.addEventListener('keydown', function(e) {
+            if (e.code === "Space") {
+                isPaused = !isPaused;
+                e.preventDefault();
+            }
         });
     </script>
 </body>
