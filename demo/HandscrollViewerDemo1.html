@@ -2,51 +2,70 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩指墨长卷 - 4K 极客直连版</title>
+    <title>高其佩指墨长卷 - 4K 博物馆级首映</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; }
-        #viewer { width: 100vw; height: 100vh; }
+        /* 营造博物馆黑匣子展陈效果 */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background-color: #000000; 
+            overflow: hidden; 
+        }
+        /* 撑满 43 寸大屏 */
+        #viewer { 
+            width: 100vw; 
+            height: 100vh; 
+            background-color: #000000; 
+        }
     </style>
 </head>
 <body>
+
     <div id="viewer"></div>
+
     <script>
-        // 既然程序读不懂 XML，我们直接把你在 XML 里看到的数字填在这里
+        // 初始化 OpenSeadragon 引擎
         var viewer = OpenSeadragon({
             id: "viewer",
+            // 使用在线图标，确保 UI 纯净
             prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
             tileSources: {
                 type: 'zoomifytileservice',
-                width: 21119,   // 你的画卷宽度
-                height: 1146,   // 你的画卷高度
-                // 重点：这里指向存放 TileGroup 文件夹的那个【根目录】
-                tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/'
+                width: 21119, // 高其佩长卷原始尺寸
+                height: 1146,
+                // 重点！既然你搬家了，这就是正确的“门牌号”
+                tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/demo/' 
             },
-            showNavigationControl: false,
-            mouseNavEnabled: true,
-            defaultZoomLevel: 1.0, 
+            showNavigationControl: false, // 隐藏按钮，保持画卷纯净
+            mouseNavEnabled: true,        // 允许手动缩放查看细节
+            defaultZoomLevel: 1.0,        // 初始缩放比例
             visibilityRatio: 1,
             constrainDuringPan: true,
-            // 针对 43 寸屏的性能优化
-            imageLoaderLimit: 10,
+            imageLoaderLimit: 10,         // 针对大屏优化加载速度
             smoothTileEdges: true
         });
 
-        // 丝滑自动平移逻辑
+        // 丝滑自动开卷逻辑
         viewer.addHandler('open', function() {
-            console.log("画卷已强行挂载成功！正在开屏...");
+            console.log("高其佩指墨长卷已成功挂载！正在开屏...");
             
+            // 每 30 毫秒平移一点点，创造流水般的观感
             setInterval(function() {
                 var currentPos = viewer.viewport.getCenter();
-                // 0.00012 是经过测试最适合 4K 屏欣赏指墨细节的速度
+                // 0.00012 是速度，你可以根据 43 寸屏的视觉感微调这个数字
                 var newX = currentPos.x + 0.00012; 
                 
-                // 滚到尽头自动回弹
+                // 自动循环：滚到尽头后自动回到开头
                 if (newX > 1.5) { newX = -0.2; } 
                 
                 viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
             }, 30); 
+        });
+
+        // 容错处理
+        viewer.addHandler('open-failed', function(event) {
+            console.error("加载失败，请检查 demo 文件夹内是否有 TileGroup0 文件夹：", event.message);
         });
     </script>
 </body>
