@@ -2,14 +2,14 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人云端美术馆 - 博物馆级全适配版</title>
+    <title>私人云端美术馆 - 博物馆深色展位版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
-        /* 【万能底色：深沉古轴色 #DFD0AC】
-           这个色号经过优化，能适配绝大部分清、明、元甚至宋代的纸绢色调 */
+        /* 【万能底色：深沉木墨色 #221F1C】
+           这种颜色能完美吸收 4K 屏的杂光，让“白边”看起来像纸张的物理切面 */
         body { 
             margin: 0; 
-            background: #DFD0AC; 
+            background: #221F1C; 
             overflow: hidden; 
             font-family: "STSong", "SimSun", serif; 
         }
@@ -17,17 +17,18 @@
             width: 100vw; 
             height: 100vh; 
             cursor: pointer; 
-            background: #DFD0AC; 
+            background: #221F1C; 
+            /* 数码润色：稍微压低高光(brightness)，增加一点点暖色调(sepia) 
+               这能让原本刺眼的“白边”瞬间变得像老纸一样温润 */
+            filter: brightness(0.92) contrast(1.05) sepia(0.05);
         }
         
-        /* 交互提示：采用深古铜色，沉稳而不夺目 */
         #status-indicator {
             position: absolute;
             top: 20px;
             right: 25px;
-            color: rgba(40, 30, 10, 0.5); 
+            color: rgba(200, 180, 150, 0.4); 
             font-size: 13px;
-            letter-spacing: 1px;
             pointer-events: none;
             transition: opacity 0.4s ease;
         }
@@ -39,7 +40,6 @@
 
     <script>
         var isPaused = false; 
-        // 当前画卷参数（后续我们可以通过数组来切换这些数字）
         var currentArtwork = {
             width: 21119,
             height: 1146,
@@ -57,8 +57,7 @@
                 height: currentArtwork.height,
                 tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/demo/'
             },
-            // 核心视觉配置
-            canvasColor: '#DFD0AC', 
+            canvasColor: '#221F1C', 
             gestureSettingsMouse: { clickToZoom: false },
             minZoomImageRatio: 0.8,
             visibilityRatio: 1.0,
@@ -68,12 +67,11 @@
         });
 
         viewer.addHandler('open', function() {
-            console.log("艺术馆模式启动：已挂载 " + currentArtwork.name);
+            console.log("博物馆模式（深色）启动：" + currentArtwork.name);
             
             setInterval(function() {
                 if (!isPaused) {
                     var currentPos = viewer.viewport.getCenter();
-                    // 慢速滚动逻辑：保持 0.00006 
                     var newX = currentPos.x - 0.00006; 
                     if (newX < -0.1) { newX = 1.1; } 
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
@@ -87,7 +85,7 @@
         viewerElement.addEventListener('click', function() {
             isPaused = !isPaused;
             indicator.innerText = isPaused ? "已暂停 · " + currentArtwork.name : "点击屏幕：暂停/继续";
-            indicator.style.opacity = isPaused ? "1" : "0.5";
+            indicator.style.opacity = isPaused ? "1" : "0.4";
         });
     </script>
 </body>
