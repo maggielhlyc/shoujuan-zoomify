@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 全图导览沉浸版</title>
+    <title>私人美术館 - 导览常驻版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
         :root { 
@@ -25,32 +25,39 @@
             transition: filter 0.5s ease;
         }
 
-        /* --- 1. 修改：暂停时不模糊，仅轻微调暗 --- */
+        /* 暂停时不模糊，仅轻微调暗 */
         body.paused { cursor: default; }
-        body.paused #viewer { filter: brightness(0.85) sepia(0.05); } /* 删除了 blur(4px) */
+        body.paused #viewer { filter: brightness(0.85) sepia(0.05); } 
         
-        /* 顶部标题与导览区 */
+        /* --- 1. 修改：全图导航器样式 (常驻顶部，永远不隐藏) --- */
+        #nav-container {
+            position: absolute; 
+            top: 3vh; /* 固定在顶部留白区中间 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%; 
+            height: 5vh; /* 扁平长条状，扁平比 18:1 左右 */
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(212, 160, 23, 0.2);
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+            z-index: 90; /* 低于暂停面板，但高于主画面 */
+            cursor: pointer; /* 即使在播放模式下也允许点击跳转 */
+        }
+        /* 红框样式 */
+        .displayregion {
+            border: 2px solid #ff0000 !important; 
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+
+        /* 顶部标题栏 (点击暂停时才滑出) */
         #header-zone {
-            position: absolute; top: -28vh; left: 0; width: 100%; height: 25vh;
+            position: absolute; top: -20vh; left: 0; width: 100%; height: 15vh;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
             transition: top 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100;
         }
         body.paused #header-zone { top: 0; }
-        #art-title { font-size: 4.5vh; color: var(--accent-color); letter-spacing: 12px; font-weight: bold; margin-bottom: 5px; }
-
-        /* --- 2. 修改：全图导航器样式 --- */
-        #nav-container {
-            width: 90%; height: 6vh; /* 扁平长条状，适合手卷 */
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(212, 160, 23, 0.2);
-            margin-top: 15px; position: relative;
-        }
-        /* OpenSeadragon 导航器内部红框的样式定制 */
-        .displayregion {
-            border: 2px solid #ff0000 !important; /* 强制红框 */
-            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-        }
+        #art-title { font-size: 4vh; color: var(--accent-color); letter-spacing: 12px; font-weight: bold; }
 
         /* 底部控制栏 */
         #control-bar {
@@ -81,10 +88,11 @@
 
     <div id="viewer" onclick="handleMainClick()"></div>
     
+    <div id="nav-container"></div>
+
     <div id="header-zone">
         <div id="art-title">载入中...</div>
-        <div id="nav-container"></div>
-        <div style="font-size: 1.5vh; opacity: 0.4; margin-top: 5px; letter-spacing: 3px;">FULL HANDSCROLL OVERVIEW</div>
+        <div style="font-size: 1.5vh; opacity: 0.4; margin-top: 5px; letter-spacing: 3px;">PRIVATE DIGITAL MUSEUM</div>
     </div>
 
     <div id="control-bar">
@@ -139,6 +147,7 @@ hand scroll; ink and color on paper
             }
         ];
 
+
         var viewer, scrollInterval, isPlaying = true, scrollStep = -0.00006;
 
         function initGallery() {
@@ -162,22 +171,15 @@ hand scroll; ink and color on paper
             viewer = OpenSeadragon({
                 id: "viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: { 
-                    type: 'zoomifytileservice', 
-                    width: art.width, 
-                    height: art.height, 
-                    tilesUrl: tilePath 
-                },
+                tileSources: { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: tilePath },
                 canvasColor: '#221F1C',
                 gestureSettingsMouse: { clickToZoom: false },
-                visibilityRatio: 1.0, 
-                constrainDuringPan: true,
-                showNavigationControl: false, 
-                defaultZoomLevel: 1.0,
+                visibilityRatio: 1.0, constrainDuringPan: true,
+                showNavigationControl: false, defaultZoomLevel: 1.0,
 
-                /* --- 核心：配置导航器 --- */
+                /* 核心：配置导航器 */
                 showNavigator:  true,
-                navigatorId:    "nav-container", // 将缩略图放进咱们定义的那个长条盒子里
+                navigatorId:    "nav-container", // 将缩略图放进常驻的长条盒子里
                 navigatorDisplayRegionColor: '#ff0000', // 红框颜色
             });
 
