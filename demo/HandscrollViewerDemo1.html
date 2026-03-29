@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>高其佩指墨长卷 - 4K 终极版</title>
+    <title>张同（清）仿周之冕花卉卷 - 4K 交互展陈版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
@@ -24,51 +24,55 @@
 
     <script>
         var isPaused = false; 
+        var imgWidth = 21119;
+        var imgHeight = 1146;
+        // 计算画卷的纵向中心线坐标，防止上下漂移
+        var centerY = (imgHeight / imgWidth) / 2;
 
         var viewer = OpenSeadragon({
             id: "viewer",
             prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
             tileSources: {
                 type: 'zoomifytileservice',
-                width: 21119,
-                height: 1146,
-                // 【核心确认点】：这里已经指向了 demo 文件夹，末尾带斜杠
+                width: imgWidth,
+                height: imgHeight,
                 tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/demo/'
             },
-            // 禁用点击缩放，防止点击暂停时画面乱跳
-            gestureSettingsMouse: { clickToZoom: false },
-            gestureSettingsTouch: { clickToZoom: false },
+            // --- 交互稳定性设置 ---
+            gestureSettingsMouse: { clickToZoom: false }, // 禁用点击缩放，防止暂停时画面跳动
+            minZoomImageRatio: 1.0,  // 最小缩放比例，防止画卷缩得太小找不到
+            visibilityRatio: 1.0,    // 强制画卷完全显示在视口内，不许漂走
+            constrainDuringPan: true, // 拖动限制在画卷范围内
             
             showNavigationControl: false, 
-            defaultZoomLevel: 1.0,
-            visibilityRatio: 1,
-            constrainDuringPan: true
+            defaultZoomLevel: 1.0
         });
 
         viewer.addHandler('open', function() {
-            console.log("高其佩长卷已就绪。路径：/demo/ 方向：从右向左。");
+            console.log("张同（清）仿周之冕花卉卷 已就绪。");
             
             setInterval(function() {
                 if (!isPaused) {
                     var currentPos = viewer.viewport.getCenter();
                     
-                    // 【确认点】：使用减号（-），确保画卷是从右侧缓缓拉出
-                    var newX = currentPos.x - 0.00005; 
+                    // 方向：向左展开 (-)；速度：建议 0.00006 左右欣赏花卉细节
+                    var newX = currentPos.x - 0.00006; 
                     
-                    // 循环逻辑：滚到左边头了就跳回右边起点
+                    // 循环逻辑：滚到左边尽头跳回右边
                     if (newX < -0.1) { newX = 1.1; } 
                     
-                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
+                    // 核心修正：锁定 centerY，无论如何缩放，Y 轴始终保持水平居中，消除漂移
+                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
                 }
             }, 30); 
         });
 
-        // 处理暂停逻辑
         var viewerElement = document.getElementById('viewer');
         var indicator = document.getElementById('status-indicator');
+
         viewerElement.addEventListener('click', function() {
             isPaused = !isPaused;
-            indicator.innerText = isPaused ? "已暂停（再次点击播放）" : "点击屏幕：暂停/播放";
+            indicator.innerText = isPaused ? "已暂停（张同-仿周之冕花卉卷）" : "点击屏幕：暂停/播放";
             indicator.style.opacity = isPaused ? "1" : "0.4";
         });
     </script>
