@@ -2,48 +2,65 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>张同（清）仿周之冕花卉卷 - 博物馆展陈版</title>
+    <title>私人云端美术馆 - 博物馆级全适配版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
-        /* 背景改为温润的古纸色 #F2EBDC */
-        body { margin: 0; background: #F2EBDC; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
-        #viewer { width: 100vw; height: 100vh; cursor: pointer; background: #F2EBDC; }
+        /* 【万能底色：深沉古轴色 #DFD0AC】
+           这个色号经过优化，能适配绝大部分清、明、元甚至宋代的纸绢色调 */
+        body { 
+            margin: 0; 
+            background: #DFD0AC; 
+            overflow: hidden; 
+            font-family: "STSong", "SimSun", serif; 
+        }
+        #viewer { 
+            width: 100vw; 
+            height: 100vh; 
+            cursor: pointer; 
+            background: #DFD0AC; 
+        }
         
-        /* 提示文字改为深色，适配浅色背景 */
+        /* 交互提示：采用深古铜色，沉稳而不夺目 */
         #status-indicator {
             position: absolute;
             top: 20px;
-            right: 20px;
-            color: rgba(60, 60, 60, 0.6); 
-            font-size: 14px;
+            right: 25px;
+            color: rgba(40, 30, 10, 0.5); 
+            font-size: 13px;
+            letter-spacing: 1px;
             pointer-events: none;
-            transition: opacity 0.3s;
+            transition: opacity 0.4s ease;
         }
     </style>
 </head>
 <body>
     <div id="viewer"></div>
-    <div id="status-indicator">点击屏幕：暂停/播放</div>
+    <div id="status-indicator">点击屏幕：暂停/继续</div>
 
     <script>
         var isPaused = false; 
-        var imgWidth = 21119;
-        var imgHeight = 1146;
-        var centerY = (imgHeight / imgWidth) / 2;
+        // 当前画卷参数（后续我们可以通过数组来切换这些数字）
+        var currentArtwork = {
+            width: 21119,
+            height: 1146,
+            name: "清 · 张同 - 仿周之冕花卉卷"
+        };
+
+        var centerY = (currentArtwork.height / currentArtwork.width) / 2;
 
         var viewer = OpenSeadragon({
             id: "viewer",
             prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
             tileSources: {
                 type: 'zoomifytileservice',
-                width: imgWidth,
-                height: imgHeight,
+                width: currentArtwork.width,
+                height: currentArtwork.height,
                 tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/demo/'
             },
-            // 锁定背景颜色
-            canvasColor: '#F2EBDC',
+            // 核心视觉配置
+            canvasColor: '#DFD0AC', 
             gestureSettingsMouse: { clickToZoom: false },
-            minZoomImageRatio: 1.0,
+            minZoomImageRatio: 0.8,
             visibilityRatio: 1.0,
             constrainDuringPan: true,
             showNavigationControl: false, 
@@ -51,12 +68,12 @@
         });
 
         viewer.addHandler('open', function() {
-            console.log("张同（清）仿周之冕花卉卷 - 雅集模式开启。");
+            console.log("艺术馆模式启动：已挂载 " + currentArtwork.name);
             
             setInterval(function() {
                 if (!isPaused) {
                     var currentPos = viewer.viewport.getCenter();
-                    // 保持慢速欣赏花卉细节
+                    // 慢速滚动逻辑：保持 0.00006 
                     var newX = currentPos.x - 0.00006; 
                     if (newX < -0.1) { newX = 1.1; } 
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
@@ -69,8 +86,8 @@
 
         viewerElement.addEventListener('click', function() {
             isPaused = !isPaused;
-            indicator.innerText = isPaused ? "已暂停（清·张同-仿周之冕花卉卷）" : "点击屏幕：暂停/播放";
-            indicator.style.opacity = isPaused ? "1" : "0.6";
+            indicator.innerText = isPaused ? "已暂停 · " + currentArtwork.name : "点击屏幕：暂停/继续";
+            indicator.style.opacity = isPaused ? "1" : "0.5";
         });
     </script>
 </body>
