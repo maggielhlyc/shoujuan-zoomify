@@ -11,51 +11,113 @@
             --panel-bg: rgba(34, 31, 28, 0.98);
             --text-color: rgba(230, 210, 180, 0.8);
         }
-        body { margin: 0; background: var(--bg-color); overflow: hidden; font-family: "STSong", "SimSun", serif; color: var(--text-color); cursor: none; }
-        #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: brightness(0.92) contrast(1.05) sepia(0.05); transition: filter 0.6s ease; }
+        body { 
+            margin: 0; background: var(--bg-color); overflow: hidden; 
+            font-family: "STSong", "SimSun", "Microsoft YaHei", serif; 
+            color: var(--text-color);
+            cursor: none; /* 播放时自动隐藏鼠标 */
+        }
+        
+        /* 核心展示区 */
+        #viewer { 
+            width: 100vw; height: 100vh; background: var(--bg-color); 
+            filter: brightness(0.92) contrast(1.05) sepia(0.05);
+            transition: filter 0.6s ease;
+        }
+
+        /* --- 交互状态控制 --- */
+        /* 暂停态逻辑 */
         body.paused { cursor: default; }
-        body.paused #viewer { filter: brightness(0.5) blur(3px); }
-        #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 20vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.5s ease; z-index: 100; }
+        body.paused #viewer { filter: brightness(0.4) blur(4px); }
+        
+        /* 1. 顶部标题栏 */
+        #header-zone {
+            position: absolute; top: -25vh; left: 0; width: 100%; height: 20vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            transition: top 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100;
+        }
         body.paused #header-zone { top: 0; }
-        #art-title { font-size: 4vh; color: var(--accent-color); letter-spacing: 12px; font-weight: bold; margin-bottom: 10px; }
-        #control-bar { position: absolute; bottom: -15vh; left: 0; width: 100%; height: 12vh; display: flex; align-items: center; justify-content: center; gap: 25px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); transition: bottom 0.5s ease; z-index: 100; }
+        #art-title { font-size: 4.5vh; color: var(--accent-color); letter-spacing: 12px; font-weight: bold; margin-bottom: 10px; }
+
+        /* 2. 底部控制按钮栏 */
+        #control-bar {
+            position: absolute; bottom: -15vh; left: 0; width: 100%; height: 12vh;
+            display: flex; align-items: center; justify-content: center; gap: 25px;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 100;
+        }
         body.paused #control-bar { bottom: 0; }
-        #details-panel { position: absolute; bottom: -45vh; left: 50%; transform: translateX(-50%); width: 85%; height: 35vh; background: var(--panel-bg); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 40px; transition: bottom 0.5s ease; z-index: 110; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.4vh; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
+
+        /* 3. 详情说明面板 */
+        #details-panel {
+            position: absolute; bottom: -45vh; left: 50%; transform: translateX(-50%);
+            width: 85%; height: 35vh; background: var(--panel-bg);
+            border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none;
+            border-radius: 20px 20px 0 0; padding: 40px;
+            transition: bottom 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 110;
+            overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.4vh;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
+        }
         body.show-details #details-panel { bottom: 0; }
         body.show-details #control-bar { bottom: 35vh; background: none; }
-        .btn { padding: 12px 28px; background: rgba(80, 70, 60, 0.8); color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 6px; cursor: pointer; font-size: 1.8vh; transition: 0.3s; }
-        .btn:hover { background: var(--accent-color); color: #000; }
-        .btn.active { background: var(--accent-color); color: #000; }
-        select { background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 10px; font-size: 1.8vh; border-radius: 6px; }
-        #progress-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,0.05); z-index: 120; }
-        #progress-bar { width: 0%; height: 100%; background: var(--accent-color); }
+
+        /* UI 按钮样式 */
+        .btn { 
+            padding: 12px 28px; background: rgba(80, 70, 60, 0.8); color: var(--text-color); 
+            border: 1px solid var(--accent-color); border-radius: 6px; cursor: pointer; 
+            font-size: 1.8vh; transition: all 0.3s;
+        }
+        .btn:hover { background: var(--accent-color); color: #000; transform: translateY(-2px); }
+        .btn.active { background: var(--accent-color); color: #000; box-shadow: 0 0 20px rgba(212, 160, 23, 0.5); }
+        
+        select { 
+            background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); 
+            padding: 10px 15px; font-size: 1.8vh; border-radius: 6px; outline: none;
+        }
+
+        /* 底部金色进度条 */
+        #progress-container {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 4px; background: rgba(255,255,255,0.05); z-index: 120;
+        }
+        #progress-bar { width: 0%; height: 100%; background: var(--accent-color); transition: width 0.3s; box-shadow: 0 0 10px var(--accent-color); }
     </style>
 </head>
 <body>
+
     <div id="viewer" onclick="handleMainClick()"></div>
+    
     <div id="progress-container"><div id="progress-bar"></div></div>
+
     <div id="header-zone">
-        <div id="art-title">加载中...</div>
-        <div style="font-size: 2vh; opacity: 0.5; letter-spacing: 4px;">PRIVATE DIGITAL MUSEUM</div>
+        <div id="art-title">载入中...</div>
+        <div id="art-meta" style="font-size: 2vh; opacity: 0.5; letter-spacing: 4px;">PRIVATE DIGITAL MUSEUM</div>
     </div>
+
     <div id="control-bar">
         <select id="art-selector" onchange="switchArt(this.value)"></select>
-        <button class="btn" onclick="adjustSpeed(-0.00002)">减速</button>
+        <button class="btn" onclick="adjustSpeed(-0.00002)">慢速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
-        <button class="btn" onclick="adjustSpeed(0.00002)">加速</button>
+        <button class="btn" onclick="adjustSpeed(0.00002)">快速</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
-        <button class="btn" style="background:var(--accent-color); color:#000;" onclick="handleMainClick()">继续</button>
+        <button class="btn" style="background:var(--accent-color); color:#000; font-weight:bold;" onclick="handleMainClick()">继续播放</button>
     </div>
-    <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
+
+    <div id="details-panel" onclick="event.stopPropagation()">
+        <div id="full-desc"></div>
+    </div>
 
     <script>
-        // --- 策展清单：使用了反引号 ` 来包裹说明文字，允许换行且不容易报错 ---
+        /****************************************************************
+         * 【策展清单】 - 以后您只需在此按格式添加新画卷
+         ****************************************************************/
         var artworks = [
             {
                 name: "01_张 同（清） 仿周之冕花卉卷",
-                meta: "清代 · 纸本设色",
-                width: 21119, height: 1146,
-                folder: "tiles/01_zhangtong/",
+                meta: "清代 · 纸本设色 · 乾隆年间",
+                width: 21119, 
+                height: 1146,
+                folder: "tiles/01_zhang_tong/", // 相对路径：确保 tiles 文件夹与本 html 在同一目录下
                 desc: `手卷 设色纸本
 ZHANG TONG FLOWERS AFTER ZHOU ZHIMIAN
 hand scroll; ink and color on paper
@@ -68,10 +130,11 @@ hand scroll; ink and color on paper
 张同，字揆一，号松隐，江苏昆山人。与倪永清友善。善花鸟，有自怡草。`
             },
             {
-                name: "02_新入藏作品",
-                meta: "清代 · 纸本手卷",
-                width: 12867, height: 832,
-                folder: "tiles/02_Hua Tuo/", 
+                name: "02_华拓 祁连山卷-全卷", 
+                meta: "现代 · 设色纸本",
+                width: 12867, 
+                height: 832,
+                folder: "tiles/02_hua_tuo/", // 请确保与您在 GitHub 新建的文件夹名完全一致
                 desc: `作者华拓
 作者生卒b.1940
 形式手卷 设色纸本
@@ -85,67 +148,121 @@ hand scroll; ink and color on paper
             }
         ];
 
-        var viewer, scrollInterval, isPlaying = true, scrollStep = -0.00006;
+        var viewer, scrollInterval;
+        var scrollStep = -0.00006; // 默认滚动速度
+        var isPlaying = true;      // 播放状态控制
 
+        // --- 1. 初始化名录 ---
         function initGallery() {
             const selector = document.getElementById('art-selector');
             artworks.forEach((art, index) => {
                 let opt = document.createElement('option');
                 opt.value = index;
+                // 去掉名字前面的序号前缀进行显示
                 opt.innerHTML = (index+1) + ". " + art.name.split('_').pop();
                 selector.appendChild(opt);
             });
-            loadArt(0);
+            loadArt(0); // 默认加载第一幅
         }
 
+        // --- 2. 核心加载函数 (修复路径逻辑) ---
         function loadArt(index) {
             let art = artworks[index];
             let centerY = (art.height / art.width) / 2;
-            let baseUrl = "https://maggielhlyc.github.io/shoujuan-zoomify/";
+            
+            // 重要：使用相对路径，自动适配当前文件夹层级
+            let tilePath = art.folder; 
+            
             if (viewer) viewer.destroy();
+
             viewer = OpenSeadragon({
                 id: "viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: baseUrl + art.folder },
-                canvasColor: '#221F1C', gestureSettingsMouse: { clickToZoom: false },
-                visibilityRatio: 1.0, constrainDuringPan: true, showNavigationControl: false, defaultZoomLevel: 1.0
+                tileSources: { 
+                    type: 'zoomifytileservice', 
+                    width: art.width, 
+                    height: art.height, 
+                    tilesUrl: tilePath 
+                },
+                canvasColor: '#221F1C',
+                gestureSettingsMouse: { clickToZoom: false },
+                visibilityRatio: 1.0, 
+                constrainDuringPan: true,
+                showNavigationControl: false, 
+                defaultZoomLevel: 1.0
             });
+
             viewer.addHandler('open', function() {
                 document.getElementById('art-title').innerText = art.name;
+                document.getElementById('art-meta').innerText = art.meta;
                 document.getElementById('full-desc').innerText = art.desc;
+                
+                // 设置滚动计时器
                 if (scrollInterval) clearInterval(scrollInterval);
                 scrollInterval = setInterval(() => {
                     if (isPlaying) {
                         let cp = viewer.viewport.getCenter();
                         let nx = cp.x + scrollStep;
+                        // 循环播放逻辑
                         if (nx < -0.1) nx = 1.1; if (nx > 1.1) nx = -0.1;
                         viewer.viewport.panTo(new OpenSeadragon.Point(nx, centerY), true);
-                        document.getElementById('progress-bar').style.width = (((nx + 0.1) / 1.2) * 100) + "%";
+                        
+                        // 更新底部金色进度条
+                        let progress = ((nx + 0.1) / 1.2) * 100;
+                        document.getElementById('progress-bar').style.width = Math.max(0, Math.min(100, progress)) + "%";
                     }
                 }, 30);
             });
         }
 
+        // --- 3. 交互逻辑函数 ---
         function handleMainClick() {
+            // 如果说明面板开着，点击画面任何地方都先关掉面板
             if (document.body.classList.contains('show-details')) {
                 document.body.classList.remove('show-details');
                 document.getElementById('info-btn').classList.remove('active');
                 return;
             }
+
             isPlaying = !isPlaying;
-            document.body.classList.toggle('paused', !isPlaying);
+            if (!isPlaying) {
+                document.body.classList.add('paused');
+            } else {
+                document.body.classList.remove('paused');
+            }
         }
 
         function toggleDetails(e) {
-            e.stopPropagation();
-            document.body.classList.toggle('show-details');
-            document.getElementById('info-btn').classList.toggle('active');
+            e.stopPropagation(); // 阻止事件冒泡，防止触发 handleMainClick
+            const isOpen = document.body.classList.contains('show-details');
+            if (isOpen) {
+                document.body.classList.remove('show-details');
+                document.getElementById('info-btn').classList.remove('active');
+            } else {
+                document.body.classList.add('show-details');
+                document.getElementById('info-btn').classList.add('active');
+            }
         }
 
-        function switchArt(val) { isPlaying = true; document.body.classList.remove('paused', 'show-details'); loadArt(parseInt(val)); }
-        function adjustSpeed(delta) { scrollStep = (Math.abs(scrollStep) + delta) * (scrollStep > 0 ? 1 : -1); }
+        function switchArt(val) { 
+            loadArt(parseInt(val));
+            isPlaying = true;
+            document.body.classList.remove('paused', 'show-details');
+            document.getElementById('info-btn').classList.remove('active');
+        }
+
+        function adjustSpeed(delta) { 
+            let dir = scrollStep > 0 ? 1 : -1;
+            scrollStep = (Math.abs(scrollStep) + delta) * dir;
+            // 限制最小速度
+            if (Math.abs(scrollStep) < 0.00001) scrollStep = 0.00001 * dir;
+        }
+
         function reverseDir() { scrollStep = -scrollStep; }
+
+        // 空格键快捷键
         window.addEventListener('keydown', (e) => { if(e.code === "Space") handleMainClick(); });
+
         window.onload = initGallery;
     </script>
 </body>
