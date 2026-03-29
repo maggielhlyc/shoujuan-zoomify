@@ -2,16 +2,19 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>张同（清）仿周之冕花卉卷 - 4K 交互展陈版</title>
+    <title>张同（清）仿周之冕花卉卷 - 博物馆展陈版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
-        #viewer { width: 100vw; height: 100vh; cursor: pointer; }
+        /* 背景改为温润的古纸色 #F2EBDC */
+        body { margin: 0; background: #F2EBDC; overflow: hidden; font-family: "Microsoft YaHei", sans-serif; }
+        #viewer { width: 100vw; height: 100vh; cursor: pointer; background: #F2EBDC; }
+        
+        /* 提示文字改为深色，适配浅色背景 */
         #status-indicator {
             position: absolute;
             top: 20px;
             right: 20px;
-            color: rgba(255, 255, 255, 0.4);
+            color: rgba(60, 60, 60, 0.6); 
             font-size: 14px;
             pointer-events: none;
             transition: opacity 0.3s;
@@ -26,7 +29,6 @@
         var isPaused = false; 
         var imgWidth = 21119;
         var imgHeight = 1146;
-        // 计算画卷的纵向中心线坐标，防止上下漂移
         var centerY = (imgHeight / imgWidth) / 2;
 
         var viewer = OpenSeadragon({
@@ -38,30 +40,25 @@
                 height: imgHeight,
                 tilesUrl: 'https://maggielhlyc.github.io/shoujuan-zoomify/demo/'
             },
-            // --- 交互稳定性设置 ---
-            gestureSettingsMouse: { clickToZoom: false }, // 禁用点击缩放，防止暂停时画面跳动
-            minZoomImageRatio: 1.0,  // 最小缩放比例，防止画卷缩得太小找不到
-            visibilityRatio: 1.0,    // 强制画卷完全显示在视口内，不许漂走
-            constrainDuringPan: true, // 拖动限制在画卷范围内
-            
+            // 锁定背景颜色
+            canvasColor: '#F2EBDC',
+            gestureSettingsMouse: { clickToZoom: false },
+            minZoomImageRatio: 1.0,
+            visibilityRatio: 1.0,
+            constrainDuringPan: true,
             showNavigationControl: false, 
             defaultZoomLevel: 1.0
         });
 
         viewer.addHandler('open', function() {
-            console.log("张同（清）仿周之冕花卉卷 已就绪。");
+            console.log("张同（清）仿周之冕花卉卷 - 雅集模式开启。");
             
             setInterval(function() {
                 if (!isPaused) {
                     var currentPos = viewer.viewport.getCenter();
-                    
-                    // 方向：向左展开 (-)；速度：建议 0.00006 左右欣赏花卉细节
+                    // 保持慢速欣赏花卉细节
                     var newX = currentPos.x - 0.00006; 
-                    
-                    // 循环逻辑：滚到左边尽头跳回右边
                     if (newX < -0.1) { newX = 1.1; } 
-                    
-                    // 核心修正：锁定 centerY，无论如何缩放，Y 轴始终保持水平居中，消除漂移
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
                 }
             }, 30); 
@@ -72,8 +69,8 @@
 
         viewerElement.addEventListener('click', function() {
             isPaused = !isPaused;
-            indicator.innerText = isPaused ? "已暂停（张同-仿周之冕花卉卷）" : "点击屏幕：暂停/播放";
-            indicator.style.opacity = isPaused ? "1" : "0.4";
+            indicator.innerText = isPaused ? "已暂停（清·张同-仿周之冕花卉卷）" : "点击屏幕：暂停/播放";
+            indicator.style.opacity = isPaused ? "1" : "0.6";
         });
     </script>
 </body>
