@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 18.0 纯净交互版</title>
+    <title>私人美术館 - 19.0 稳定性加强版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,19 +15,33 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
         
-        /* 导览图外层 */
-        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0; transition: opacity 0.4s; }
-        #navi-container { width: 100vw; height: 7vh; background: rgba(0,0,0,0.6); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: height 0.4s, background 0.4s; }
-        body.paused #navi-container { height: 9vh; background: rgba(0,0,0,0.85); border-color: var(--accent-color); pointer-events: auto; }
+        /* 1. 导览图修正：固定高度，取消 height 动画防止拉伸变形 */
+        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0; }
+        #navi-container { 
+            width: 100vw; 
+            height: 8vh; /* 固定高度，不再变动 */
+            background: rgba(0,0,0,0.6); 
+            border-top: 1px solid rgba(212, 160, 23, 0.2); 
+            border-bottom: 1px solid rgba(212, 160, 23, 0.2); 
+            transition: background 0.4s, border-color 0.4s; 
+        }
+        body.paused #navi-container { 
+            background: rgba(0,0,0,0.85); 
+            border-color: var(--accent-color); 
+            pointer-events: auto; 
+        }
 
         #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; }
         body.paused #header-zone { top: 0; }
         #art-title { font-size: 3.2vh; color: var(--accent-color); letter-spacing: 4px; font-weight: bold; text-align: center; }
+        
         #control-bar { position: absolute; bottom: -15vh; left: 0; width: 100%; height: 12vh; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); transition: all 0.4s ease; z-index: 110; padding: 0 20px; }
         body.paused #control-bar { bottom: 0; }
         body.show-details #control-bar { bottom: 40vh; background: none; }
-        #details-panel { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 100%); width: 90%; height: 40vh; background: var(--panel-bg); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 40px; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 105; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.2vh; box-shadow: 0 -15px 40px rgba(0,0,0,0.7); }
+        
+        #details-panel { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 100%); width: 90%; height: 40vh; background: var(--panel-bg); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 40px; transition: transform 0.5s ease; z-index: 105; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.2vh; box-shadow: 0 -15px 40px rgba(0,0,0,0.7); }
         body.show-details #details-panel { transform: translate(-50%, 0); }
+        
         .btn { padding: 1vh 1.8vh; background: rgba(70, 60, 50, 0.8); color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 4px; cursor: pointer; font-size: 1.5vh; }
         .btn:hover { background: var(--accent-color); color: #000; }
         select { max-width: 35vw; background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.5vh; border-radius: 4px; }
@@ -36,11 +50,7 @@
 <body>
 
     <div id="viewer" onclick="handleMainClick()"></div>
-
-    <div id="navi-outer">
-        <div id="navi-container"></div>
-    </div>
-
+    <div id="navi-outer"><div id="navi-container"></div></div>
     <div id="header-zone"><div id="art-title">加载中...</div></div>
 
     <div id="control-bar">
@@ -49,7 +59,7 @@
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
-        <button id="fs-btn" class="btn" style="background:#2d4a35;" onclick="toggleFullscreen(event)">全屏</button>
+        <button id="fs-btn" class="btn" style="background:#2d4a35;" onclick="toggleFullscreen(event)">进馆</button>
         <button class="btn" style="background:var(--accent-color); color:#000; font-weight:bold;" onclick="handleMainClick()">继续</button>
     </div>
 
@@ -57,8 +67,8 @@
 
     <script>
         var artworks = [
-            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。交互已修正：单击仅控制播放/暂停，不会触发放大，缩放请使用鼠标滚轮。" },
-            { name: "02_高其佩 · 荷塘双鸭图", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: "高其佩指墨神品。导览图实时跟随画卷上沿移动，永不遮挡画面。" }
+            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。" },
+            { name: "02_高其佩 · 荷塘双鸭图", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: "高其佩指墨神品。" }
         ];
 
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
@@ -78,9 +88,14 @@
         function loadArt(index) {
             let art = artworks[index];
             centerY = (art.height / art.width) / 2;
+            
+            // 彻底清理
             if (viewer) { viewer.destroy(); viewer = null; }
             if (animationRequest) { cancelAnimationFrame(animationRequest); }
 
+            // 确保容器在初始化前是存在的
+            const container = document.getElementById('navi-container');
+            
             viewer = OpenSeadragon({
                 id: "viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
@@ -95,18 +110,12 @@
                 defaultZoomLevel: 1.0,
                 animationTime: 0,
                 blendingTime: 0.1,
-                
-                // --- 核心修正：禁用点击/双击缩放 ---
-                gestureSettingsMouse: {
-                    clickToZoom: false,      // 单击不再缩放
-                    dblClickToZoom: false,   // 双击不再缩放
-                    scrollWheelZoom: true    // 保留滚轮缩放
-                },
-                gestureSettingsTouch: {
-                    pinchRotate: false,
-                    clickToZoom: false,
-                    dblClickToZoom: false
-                }
+                gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false, scrollWheelZoom: true }
+            });
+
+            // 监听加载失败，如果是图2黑屏，这里会弹窗报错具体原因
+            viewer.addHandler('open-failed', function(e) {
+                alert("加载失败！请检查文件夹 " + art.folder + " 是否存在，或 TileGroup0 路径是否正确。");
             });
 
             viewer.addHandler('open', function() {
@@ -142,6 +151,29 @@
             animationRequest = requestAnimationFrame(step);
         }
 
+        // --- 全屏按钮文字切换修正 ---
+        function toggleFullscreen(e) {
+            e.stopPropagation();
+            const btn = document.getElementById('fs-btn');
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().then(() => {
+                    btn.innerText = "出馆";
+                }).catch(err => {
+                    console.log("全屏失败", err);
+                });
+            } else {
+                document.exitFullscreen().then(() => {
+                    btn.innerText = "进馆";
+                });
+            }
+        }
+
+        // 监听系统全屏变化（比如按 Esc 退出时，同步按钮文字）
+        document.addEventListener('fullscreenchange', () => {
+            const btn = document.getElementById('fs-btn');
+            btn.innerText = document.fullscreenElement ? "出馆" : "进馆";
+        });
+
         function handleMainClick() {
             if (document.body.classList.contains('show-details')) {
                 document.body.classList.remove('show-details');
@@ -151,8 +183,6 @@
             document.body.classList.toggle('paused', !isPlaying);
         }
 
-        // 其它功能保持...
-        function toggleFullscreen(e) { e.stopPropagation(); if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); } else { document.exitFullscreen(); } }
         function toggleDetails(e) { e.stopPropagation(); document.body.classList.toggle('show-details'); }
         function switchArt(val) { isPlaying = true; document.body.classList.remove('paused', 'show-details'); loadArt(parseInt(val)); }
         function adjustSpeed(delta) { let dir = scrollStep > 0 ? 1 : -1; scrollStep = (Math.abs(scrollStep) + delta) * dir; scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; }
