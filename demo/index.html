@@ -18,11 +18,11 @@
         /* --- 核心修复：锁定高度，使用光晕代替变形 --- */
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; }
         /* 将高度固定为 8vh，无论播放还是暂停都不改变 */
-        #navi-container { width: 100vw; height: 8vh; background: rgba(0,0,0,0.6); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: all 0.4s; }
+        #navi-container { width: 100vw; height: 8vh; background: #221F1C;  border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: all 0.4s; }
         
         /* 暂停时：透明度拉满，背景加深，边框高亮，并增加金色发光阴影，绝对不改变 height */
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
-        body.paused #navi-container { background: rgba(0,0,0,0.85); border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
+        body.paused #navi-container { background: #221F1C; border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
 
         #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; pointer-events: none; }
         body.paused #header-zone { top: 0; }
