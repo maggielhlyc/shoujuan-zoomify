@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 23.0 沉浸悬浮版</title>
+    <title>私人美术館 - 20.0 雷达侦测版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -11,54 +11,42 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --bg-color: #221F1C; --accent-color: #d4a017; --panel-bg: rgba(30, 25, 20, 0.98); --text-color: rgba(230, 210, 180, 0.9); }
         html, body { width: 100%; height: 100%; background: var(--bg-color); overflow: hidden; font-family: "STSong", "SimSun", serif; color: var(--text-color); cursor: none; }
-        
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
+        
+        /* 超级雷达提示框 */
+        #loading-overlay { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); color: var(--accent-color); font-size: 2.2vh; text-align: center; z-index: 200; display: none; background: rgba(0,0,0,0.9); padding: 30px; border-radius: 12px; border: 2px solid var(--accent-color); box-shadow: 0 0 30px rgba(0,0,0,0.8); line-height: 1.8; }
+
         body.paused { cursor: default; }
-
-        /* --- 核心美学升级：悬浮画中画 --- */
-        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0.75; transition: opacity 0.4s; }
-        
-        /* 背景色直接调用主背景色 var(--bg-color)，去掉了突兀的黑带 */
-        #navi-container { width: 100vw; height: 8vh; background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.15); border-bottom: 1px solid rgba(212, 160, 23, 0.15); transition: all 0.4s; }
-        
-        /* 暂停时：背景色依然和主图融为一体，仅通过金边和光晕来提示交互 */
+        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0; transition: all 0.4s; }
+        #navi-container { width: 100vw; height: 7vh; background: rgba(0,0,0,0.5); border-bottom: 1px solid rgba(212, 160, 23, 0.2); }
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
-        body.paused #navi-container { background: var(--bg-color); border-color: var(--accent-color); box-shadow: 0 0 25px rgba(212, 160, 23, 0.3); }
-
-        #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; pointer-events: none; }
+        body.paused #navi-container { background: rgba(0,0,0,0.85); border-color: var(--accent-color); }
+        #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; }
         body.paused #header-zone { top: 0; }
         #art-title { font-size: 3.2vh; color: var(--accent-color); letter-spacing: 4px; font-weight: bold; text-align: center; }
-        
         #control-bar { position: absolute; bottom: -15vh; left: 0; width: 100%; height: 12vh; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); transition: all 0.4s ease; z-index: 110; padding: 0 20px; }
         body.paused #control-bar { bottom: 0; }
         body.show-details #control-bar { bottom: 40vh; background: none; }
-        
         #details-panel { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 100%); width: 90%; height: 40vh; background: var(--panel-bg); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 40px; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 105; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.2vh; box-shadow: 0 -15px 40px rgba(0,0,0,0.7); }
         body.show-details #details-panel { transform: translate(-50%, 0); }
-        
         .btn { padding: 1vh 1.8vh; background: rgba(70, 60, 50, 0.8); color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 4px; cursor: pointer; font-size: 1.5vh; }
         .btn:hover { background: var(--accent-color); color: #000; }
-        select { max-width: 35vw; background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.5vh; border-radius: 4px; outline: none;}
+        select { max-width: 35vw; background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.5vh; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <div id="viewer"></div>
-    <div id="navi-outer"></div> 
-    
-    <div id="header-zone"><div id="art-title">加载中...</div></div>
-    
+    <div id="viewer" onclick="handleMainClick()"></div>
+    <div id="loading-overlay"></div> <div id="navi-outer"><div id="navi-container"></div></div>
+    <div id="header-zone"><div id="art-title">作品加载中...</div></div>
     <div id="control-bar">
         <select id="art-selector" onchange="switchArt(this.value)"></select>
         <button class="btn" onclick="adjustSpeed(-0.000005)">减速</button>
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
-        <button class="btn" onclick="resetView()">复位</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
-        <button id="fs-btn" class="btn" style="background:#2d4a35;" onclick="toggleFullscreen(event)">进馆</button>
-        <button class="btn" style="background:var(--accent-color); color:#000; font-weight:bold;" onclick="togglePlayState()">继续</button>
+        <button class="btn" style="background:var(--accent-color); color:#000; font-weight:bold;" onclick="handleMainClick()">继续</button>
     </div>
-
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
@@ -84,34 +72,86 @@
         function loadArt(index) {
             let art = artworks[index];
             centerY = (art.height / art.width) / 2;
-            
+            const loader = document.getElementById('loading-overlay');
+            loader.style.display = 'block';
+            loader.innerHTML = "正在加载画卷...<br><span style='font-size:1.5vh;color:gray'>寻址: " + art.folder + "</span>";
+
             if (animationRequest) cancelAnimationFrame(animationRequest);
             if (viewer) { viewer.destroy(); viewer = null; }
 
-            const outer = document.getElementById('navi-outer');
-            outer.innerHTML = '<div id="navi-container"></div>';
+            setTimeout(() => {
+                if (!document.getElementById('navi-container')) {
+                    const outer = document.getElementById('navi-outer');
+                    const inner = document.createElement('div');
+                    inner.id = 'navi-container';
+                    outer.appendChild(inner);
+                }
 
-            viewer = OpenSeadragon({
-                id: "viewer",
-                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder },
-                canvasColor: '#221F1C',
-                showNavigationControl: false,
-                showNavigator: true,
-                navigatorId: "navi-container",
-                navigatorAutoFade: false,
-                gestureSettingsMouse: { clickToZoom: false }, 
-                visibilityRatio: 1.0, 
-                constrainDuringPan: true,
-                defaultZoomLevel: 1.0,
-                animationTime: 0,
-                blendingTime: 0.1
-            });
+                viewer = OpenSeadragon({
+                    id: "viewer",
+                    prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+                    tileSources: { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder },
+                    canvasColor: '#221F1C',
+                    showNavigationControl: false,
+                    showNavigator: true,
+                    navigatorId: "navi-container",
+                    navigatorAutoFade: false,
+                    visibilityRatio: 1.0, 
+                    constrainDuringPan: true,
+                    defaultZoomLevel: 1.0,
+                    animationTime: 0,
+                    blendingTime: 0.1
+                });
 
-            viewer.addHandler('canvas-click', function(event) {
-                if (!event.quick) return; 
-                event.preventDefaultAction = true; 
-                togglePlayState();
-            });
+                // 【终极雷达】：捕捉碎片丢失错误
+                viewer.addHandler('tile-load-failed', function(event) {
+                    loader.style.display = 'block';
+                    loader.innerHTML = "<b style='color:#ff4444; font-size: 3vh;'>加载画卷碎片失败！</b><br><br>系统尝试去这个地方找图，但没找到：<br><b style='color:#fff; background:#d4a017; padding:2px 6px;'>" + art.folder + "TileGroup0/</b><br><br>【排查建议】：<br>去 GitHub 检查该路径下是否有 <b>TileGroup0</b> 文件夹。<br>绝大部分原因是套娃了（比如 02_gao/02_gao/TileGroup0）。";
+                });
 
-            viewer.addHandler('open-failed', function
+                viewer.addHandler('open', function() {
+                    loader.style.display = 'none';
+                    document.getElementById('art-title').innerText = art.name;
+                    document.getElementById('full-desc').innerText = art.desc;
+                    document.getElementById('navi-outer').style.opacity = "1";
+                    startAnimationLoop();
+                });
+            }, 100);
+        }
+
+        function updateNaviPosition() {
+            if (!viewer || !viewer.viewport || !viewer.world.getItemAt(0)) return;
+            const naviOuter = document.getElementById('navi-outer');
+            const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(viewer.world.getItemAt(0).getBounds().getTopLeft());
+            naviOuter.style.top = (pixelTopLeft.y - naviOuter.offsetHeight - 30) + "px";
+        }
+
+        function startAnimationLoop() {
+            function step() {
+                if (isPlaying && viewer && viewer.viewport) {
+                    let currentPos = viewer.viewport.getCenter();
+                    let newX = currentPos.x + scrollStep;
+                    if (newX < -0.1) newX = 1.1; if (newX > 1.1) newX = -0.1;
+                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
+                }
+                updateNaviPosition();
+                animationRequest = requestAnimationFrame(step);
+            }
+            animationRequest = requestAnimationFrame(step);
+        }
+
+        function handleMainClick() {
+            if (document.body.classList.contains('show-details')) { document.body.classList.remove('show-details'); return; }
+            isPlaying = !isPlaying;
+            document.body.classList.toggle('paused', !isPlaying);
+        }
+        function toggleDetails(e) { e.stopPropagation(); document.body.classList.toggle('show-details'); }
+        function switchArt(val) { isPlaying = true; document.body.classList.remove('paused', 'show-details'); loadArt(parseInt(val)); }
+        function adjustSpeed(delta) { let dir = scrollStep > 0 ? 1 : -1; scrollStep = (Math.abs(scrollStep) + delta) * dir; scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; }
+        function reverseDir() { scrollStep = -scrollStep; }
+
+        if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('sw.js'); }); }
+        window.onload = initGallery;
+    </script>
+</body>
+</html>
