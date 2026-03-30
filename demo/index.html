@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 8.0 竖屏专业版</title>
+    <title>私人美术館 - 9.0 纯净高清版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/openseadragon.min.js"></script>
     <style>
         :root { 
@@ -12,82 +12,100 @@
         }
         body { margin: 0; background: var(--bg-color); overflow: hidden; font-family: "STSong", "SimSun", serif; color: var(--text-color); cursor: none; }
         
-        /* 核心展示区 */
-        #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: brightness(0.92) contrast(1.05) sepia(0.05); transition: filter 0.5s; }
+        /* 核心展示区：去除模糊，仅保留亮度调节 */
+        #viewer { 
+            width: 100vw; height: 100vh; background: var(--bg-color); 
+            filter: brightness(0.92) contrast(1.05) sepia(0.05); 
+            transition: filter 0.5s; 
+        }
         body.paused { cursor: default; }
-        body.paused #viewer { filter: brightness(0.4) blur(2px); }
+        /* 关键修正：暂停时保持画面清晰，不使用 blur */
+        body.paused #viewer { filter: brightness(0.6) contrast(1.05); }
 
-        /* 顶部：标题 + 导航图区域 */
-        #top-zone {
-            position: absolute; top: -35vh; left: 0; width: 100%; height: 32vh;
-            display: flex; flex-direction: column; align-items: center;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
-            transition: top 0.5s ease; z-index: 100; padding-top: 2vh;
+        /* 顶部标题区：仅包含文字，支持滑入滑出 */
+        #header-zone {
+            position: absolute; top: -20vh; left: 0; width: 100%; height: 15vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            transition: top 0.5s ease; z-index: 100;
         }
-        body.paused #top-zone { top: 0; }
-        #art-title { font-size: 3.5vh; color: var(--accent-color); letter-spacing: 10px; font-weight: bold; margin-bottom: 1vh; }
+        body.paused #header-zone { top: 0; }
+        #art-title { font-size: 3.5vh; color: var(--accent-color); letter-spacing: 10px; font-weight: bold; }
 
-        /* 导航图容器 (那个带红框的全图) */
+        /* 导航图容器：独立出来，滚动时淡淡显示，暂停时高亮 */
+        #navi-outer {
+            position: absolute; top: 2vh; left: 0; width: 100%;
+            display: flex; justify-content: center; z-index: 150;
+            pointer-events: none; /* 播放时不干扰点击 */
+        }
         #navi-container {
-            width: 80%; height: 12vh; border: 1px solid rgba(212, 160, 23, 0.3);
-            background: rgba(0,0,0,0.5); margin-top: 1vh;
+            width: 80%; height: 8vh; 
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(212, 160, 23, 0.2);
+            opacity: 0.4; /* 播放时半透明 */
+            transition: all 0.5s;
+        }
+        /* 暂停时，导航图变清晰且可点击 */
+        body.paused #navi-container {
+            opacity: 1;
+            background: rgba(0,0,0,0.7);
+            border: 1px solid var(--accent-color);
+            pointer-events: auto;
+            transform: translateY(13vh); /* 暂停时向下移动一点，避开标题 */
         }
 
-        /* 底部：按钮 + 说明文字区域 */
+        /* 底部信息区 */
         #bottom-zone {
             position: absolute; bottom: -50vh; left: 0; width: 100%; height: 45vh;
-            display: flex; flex-direction: column; align-items: center;
             background: linear-gradient(to top, rgba(0,0,0,0.9) 80%, transparent);
+            display: flex; flex-direction: column; align-items: center;
             transition: bottom 0.5s ease; z-index: 100;
         }
         body.paused #bottom-zone { bottom: 0; }
 
-        /* 说明文字区 */
-        #description-box {
-            width: 85%; flex-grow: 1; margin-top: 2vh; font-size: 2.2vh; line-height: 1.8;
-            text-align: justify; overflow-y: auto; padding: 20px;
-        }
-
-        /* 按钮栏 */
+        #description-box { width: 85%; flex-grow: 1; margin-top: 2vh; font-size: 2.2vh; line-height: 1.8; text-align: justify; overflow-y: auto; padding: 20px; }
         #controls { width: 100%; height: 10vh; display: flex; align-items: center; justify-content: center; gap: 20px; }
         .btn { padding: 1vh 2vh; background: rgba(80, 70, 60, 0.8); color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 4px; cursor: pointer; font-size: 1.6vh; }
         .btn:hover { background: var(--accent-color); color: #000; }
-        select { background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.6vh; }
+        select { background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.6vh; border-radius: 4px; }
     </style>
 </head>
 <body>
 
     <div id="viewer" onclick="toggleUI()"></div>
 
-    <div id="top-zone">
-        <div id="art-title">加载中...</div>
-        <div id="navi-container"></div> </div>
+    <div id="navi-outer">
+        <div id="navi-container"></div>
+    </div>
+
+    <div id="header-zone">
+        <div id="art-title">作品加载中...</div>
+    </div>
 
     <div id="bottom-zone">
-        <div id="description-box">作品说明加载中...</div>
+        <div id="description-box">载入中...</div>
         <div id="controls">
             <select id="art-selector" onchange="switchArt(this.value)"></select>
             <button class="btn" onclick="adjustSpeed(-0.00002)">慢速</button>
             <button class="btn" onclick="reverseDir()">调向</button>
             <button class="btn" onclick="adjustSpeed(0.00002)">快速</button>
-            <button class="btn" style="background:var(--accent-color); color:#000;" onclick="toggleUI()">继续欣赏</button>
+            <button class="btn" style="background:var(--accent-color); color:#000;" onclick="toggleUI()">继续播放</button>
         </div>
     </div>
 
     <script>
-        // --- 策展清单 (请确保文件夹路径是相对于 index.html 的) ---
         var artworks = [
             {
                 name: "01_张 同（清） 仿周之冕花卉卷",
                 width: 21119, height: 1146,
-                folder: "tiles/01_zhang_tong/", // 相对路径
+                folder: "tiles/01_zhang_tong/",
                 desc: "此卷为清代画家张同仿明代‘勾花点叶派’宗师周之冕之作。画面展现了四季花卉之生机，笔法清丽，设色典雅。"
             },
             {
-                name: "02_新作品名称", 
+                name: "02_新入藏作品", 
                 width: 12867, height: 832,
                 folder: "tiles/02_hua_tuo/", 
-                desc: "这是您的第二幅入藏作品。现在导航图（红框全图）已挪至上方标题下，方便您随时掌握画卷进度。"
+                desc: "12867像素长卷。现在导航地图（带红框全图）在滚动播放时会以半透明形式常驻上方，点击暂停后会自动移至标题下方并变亮。"
             }
         ];
 
@@ -107,27 +125,19 @@
         function loadArt(index) {
             let art = artworks[index];
             let centerY = (art.height / art.width) / 2;
-            
             if (viewer) { viewer.destroy(); }
 
-            // 初始化 OpenSeadragon
             viewer = OpenSeadragon({
                 id: "viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: { 
-                    type: 'zoomifytileservice', 
-                    width: art.width, 
-                    height: art.height, 
-                    tilesUrl: art.folder // 使用相对路径，解决404问题
-                },
+                tileSources: { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder },
                 canvasColor: '#221F1C',
                 gestureSettingsMouse: { clickToZoom: false },
                 showNavigationControl: false,
-                // --- 导航图配置 (红框全图) ---
+                // 导航图核心设置
                 showNavigator: true,
-                navigatorId: "navi-container", // 指定显示在刚才定义的容器里
-                navigatorAutoFade: false,      // 始终显示
-                
+                navigatorId: "navi-container",
+                navigatorAutoFade: false, // 强制不自动隐藏，由我们CSS控制
                 visibilityRatio: 1.0, 
                 constrainDuringPan: true,
                 defaultZoomLevel: 1.0
@@ -136,7 +146,6 @@
             viewer.addHandler('open', function() {
                 document.getElementById('art-title').innerText = art.name;
                 document.getElementById('description-box').innerText = art.desc;
-                
                 if (scrollInterval) clearInterval(scrollInterval);
                 scrollInterval = setInterval(() => {
                     if (isPlaying) {
@@ -155,7 +164,10 @@
         }
 
         function switchArt(val) { isPlaying = true; document.body.classList.remove('paused'); loadArt(parseInt(val)); }
-        function adjustSpeed(delta) { scrollStep = (Math.abs(scrollStep) + delta) * (scrollStep > 0 ? 1 : -1); }
+        function adjustSpeed(delta) { 
+            let dir = scrollStep > 0 ? 1 : -1;
+            scrollStep = (Math.abs(scrollStep) + delta) * dir;
+        }
         function reverseDir() { scrollStep = -scrollStep; }
 
         window.onload = initGallery;
