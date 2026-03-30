@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 21.0 典藏完美版</title>
+    <title>私人美术館 - 22.0 典藏完美版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,26 +15,23 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        /* --- 核心修改区：导览图常驻 --- */
-        /* 播放时：半透明 (opacity: 0.6) 常驻，不干扰视线 */
+        /* --- 核心修复：锁定高度，使用光晕代替变形 --- */
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; }
-        #navi-container { width: 100vw; height: 7vh; background: rgba(0,0,0,0.6); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: all 0.4s; }
+        /* 将高度固定为 8vh，无论播放还是暂停都不改变 */
+        #navi-container { width: 100vw; height: 8vh; background: rgba(0,0,0,0.6); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: all 0.4s; }
         
-        /* 暂停时：完全不透明 (opacity: 1) 且变宽亮起 */
+        /* 暂停时：透明度拉满，背景加深，边框高亮，并增加金色发光阴影，绝对不改变 height */
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
-        body.paused #navi-container { height: 9vh; background: rgba(0,0,0,0.85); border-color: var(--accent-color); }
+        body.paused #navi-container { background: rgba(0,0,0,0.85); border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
 
-        /* 顶部标题栏 */
         #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; pointer-events: none; }
         body.paused #header-zone { top: 0; }
         #art-title { font-size: 3.2vh; color: var(--accent-color); letter-spacing: 4px; font-weight: bold; text-align: center; }
         
-        /* 底部控制栏 */
         #control-bar { position: absolute; bottom: -15vh; left: 0; width: 100%; height: 12vh; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); transition: all 0.4s ease; z-index: 110; padding: 0 20px; }
         body.paused #control-bar { bottom: 0; }
         body.show-details #control-bar { bottom: 40vh; background: none; }
         
-        /* 作品志面板 */
         #details-panel { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 100%); width: 90%; height: 40vh; background: var(--panel-bg); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 40px; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 105; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.2vh; box-shadow: 0 -15px 40px rgba(0,0,0,0.7); }
         body.show-details #details-panel { transform: translate(-50%, 0); }
         
@@ -65,7 +62,7 @@
 
     <script>
         var artworks = [
-            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。修复：已彻底阻断点击放大跳动现象。" },
+            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。修复：导览图暂停时不再产生纵向拉伸变形。" },
             { name: "02_高其佩 · 荷塘双鸭图", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: "高其佩指墨神品。修复：导览图已恢复主界面常驻显示。" }
         ];
 
@@ -123,7 +120,6 @@
             viewer.addHandler('open', function() {
                 document.getElementById('art-title').innerText = art.name;
                 document.getElementById('full-desc').innerText = art.desc;
-                // 删除了强行修改透明度的代码，全权交给 CSS 处理
                 startAnimationLoop();
             });
         }
@@ -140,7 +136,7 @@
             const imageBounds = tiledImage.getBounds();
             const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
             const gap = 30; 
-            const naviHeight = naviContainer.offsetHeight || (window.innerHeight * 0.07); 
+            const naviHeight = naviContainer.offsetHeight || (window.innerHeight * 0.08); 
             naviOuter.style.top = (pixelTopLeft.y - naviHeight - gap) + "px";
         }
 
@@ -166,7 +162,6 @@
             }
             isPlaying = !isPlaying;
             document.body.classList.toggle('paused', !isPlaying);
-            // 删除了这里强行修改透明度的逻辑
         }
 
         function resetView() {
