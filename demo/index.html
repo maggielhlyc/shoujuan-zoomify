@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 22.0 典藏完美版</title>
+    <title>私人美术館 - 23.0 沉浸悬浮版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,14 +15,15 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        /* --- 核心修复：锁定高度，使用光晕代替变形 --- */
-        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; }
-        /* 将高度固定为 8vh，无论播放还是暂停都不改变 */
-        #navi-container { width: 100vw; height: 8vh; background: rgba(0,0,0,0.6); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: all 0.4s; }
+        /* --- 核心美学升级：悬浮画中画 --- */
+        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0.75; transition: opacity 0.4s; }
         
-        /* 暂停时：透明度拉满，背景加深，边框高亮，并增加金色发光阴影，绝对不改变 height */
+        /* 背景色直接调用主背景色 var(--bg-color)，去掉了突兀的黑带 */
+        #navi-container { width: 100vw; height: 8vh; background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.15); border-bottom: 1px solid rgba(212, 160, 23, 0.15); transition: all 0.4s; }
+        
+        /* 暂停时：背景色依然和主图融为一体，仅通过金边和光晕来提示交互 */
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
-        body.paused #navi-container { background: rgba(0,0,0,0.85); border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
+        body.paused #navi-container { background: var(--bg-color); border-color: var(--accent-color); box-shadow: 0 0 25px rgba(212, 160, 23, 0.3); }
 
         #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; pointer-events: none; }
         body.paused #header-zone { top: 0; }
@@ -62,8 +63,8 @@
 
     <script>
         var artworks = [
-            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。修复：导览图暂停时不再产生纵向拉伸变形。" },
-            { name: "02_高其佩 · 荷塘双鸭图", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: "高其佩指墨神品。修复：导览图已恢复主界面常驻显示。" }
+            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。" },
+            { name: "02_高其佩 · 荷塘双鸭图", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: "高其佩指墨神品。" }
         ];
 
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
@@ -113,94 +114,4 @@
                 togglePlayState();
             });
 
-            viewer.addHandler('open-failed', function(e) {
-                alert("加载失败！请检查 GitHub 文件夹名称是否绝对等于：" + art.folder);
-            });
-
-            viewer.addHandler('open', function() {
-                document.getElementById('art-title').innerText = art.name;
-                document.getElementById('full-desc').innerText = art.desc;
-                startAnimationLoop();
-            });
-        }
-
-        function updateNaviPosition() {
-            if (!viewer || !viewer.viewport || viewer.world.getItemCount() === 0) return;
-            const naviOuter = document.getElementById('navi-outer');
-            const naviContainer = document.getElementById('navi-container');
-            if (!naviOuter || !naviContainer) return;
-
-            const tiledImage = viewer.world.getItemAt(0);
-            if (!tiledImage) return; 
-
-            const imageBounds = tiledImage.getBounds();
-            const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
-            const gap = 30; 
-            const naviHeight = naviContainer.offsetHeight || (window.innerHeight * 0.08); 
-            naviOuter.style.top = (pixelTopLeft.y - naviHeight - gap) + "px";
-        }
-
-        function startAnimationLoop() {
-            function step() {
-                if (isPlaying && viewer && viewer.viewport) {
-                    let currentPos = viewer.viewport.getCenter();
-                    let newX = currentPos.x + scrollStep;
-                    if (newX < -0.1) newX = 1.1; if (newX > 1.1) newX = -0.1;
-                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
-                }
-                updateNaviPosition();
-                animationRequest = requestAnimationFrame(step);
-            }
-            animationRequest = requestAnimationFrame(step);
-        }
-
-        function togglePlayState() {
-            if (document.body.classList.contains('show-details')) {
-                document.body.classList.remove('show-details');
-                document.getElementById('info-btn').classList.remove('active');
-                return;
-            }
-            isPlaying = !isPlaying;
-            document.body.classList.toggle('paused', !isPlaying);
-        }
-
-        function resetView() {
-            if (viewer) {
-                viewer.viewport.goHome();
-                isPlaying = true;
-                document.body.classList.remove('paused', 'show-details');
-            }
-        }
-
-        function toggleFullscreen(e) {
-            e.stopPropagation();
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log(`无法进入全屏: ${err.message}`);
-                });
-            } else {
-                if (document.exitFullscreen) document.exitFullscreen();
-            }
-        }
-
-        document.addEventListener('fullscreenchange', () => {
-            const fsBtn = document.getElementById('fs-btn');
-            if (!document.fullscreenElement) {
-                fsBtn.innerText = "进馆";
-                fsBtn.style.background = "#2d4a35";
-            } else {
-                fsBtn.innerText = "出馆";
-                fsBtn.style.background = "#8b3e3e"; 
-            }
-        });
-
-        function toggleDetails(e) { e.stopPropagation(); document.body.classList.toggle('show-details'); document.getElementById('info-btn').classList.toggle('active'); }
-        function switchArt(val) { isPlaying = true; document.body.classList.remove('paused', 'show-details'); loadArt(parseInt(val)); }
-        function adjustSpeed(delta) { let dir = scrollStep > 0 ? 1 : -1; scrollStep = (Math.abs(scrollStep) + delta) * dir; scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; }
-        function reverseDir() { scrollStep = -scrollStep; }
-
-        if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('sw.js').catch(err=>{}); }); }
-        window.onload = initGallery;
-    </script>
-</body>
-</html>
+            viewer.addHandler('open-failed', function
