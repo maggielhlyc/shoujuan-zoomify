@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 28.0 原生像素轮播版</title>
+    <title>私人美术館 - 28.0 宽屏满载轮播版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -16,7 +16,9 @@
         body.paused { cursor: default; }
 
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; }
-        #navi-container { width: 100vw; height: 8vh; background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: all 0.4s; }
+        
+        /* [微创修改 1/2]：去除了写死的 height: 8vh，让它由 JS 动态等比撑开 */
+        #navi-container { width: 100vw; background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: all 0.4s; }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
         body.paused #navi-container { background: var(--bg-color); border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
@@ -62,15 +64,14 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】请替换为您真实的 GitHub 文件夹名称
         var artworks = [
-            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。修复：抵消安卓系统放大，呈现原生比例。" },
-            { name: "02_高其佩 · 荷塘双鸭图", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: "高其佩指墨神品。修复：抵消安卓系统放大，呈现原生比例。" }
+            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。" },
+            { name: "02_高其佩 · 荷塘双鸭图", width: 12867, height: 832, folder: "tiles/02_hua_tuo", desc: "高其佩指墨神品。" }
         ];
 
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
         var currentArtIndex = 0;
-        var isAutoCycle = false;
+        var isAutoCycle = false; 
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -93,7 +94,9 @@
             if (viewer) { viewer.destroy(); viewer = null; }
 
             const outer = document.getElementById('navi-outer');
-            outer.innerHTML = '<div id="navi-container"></div>';
+            // [微创修改 2/2]：根据屏幕宽度和画卷比例，动态计算出让导览图刚好铺满 100vw 的精准高度
+            let exactNaviHeight = window.innerWidth / (art.width / art.height);
+            outer.innerHTML = '<div id="navi-container" style="height: ' + exactNaviHeight + 'px;"></div>';
 
             viewer = OpenSeadragon({
                 id: "viewer",
@@ -123,20 +126,9 @@
                 document.getElementById('full-desc').innerText = art.desc;
                 document.getElementById('art-selector').value = index;
 
-                // ====== 核心修复：原生物理像素 1:1 ======
-                // 获取浏览器层面的 1:1 缩放比
+                // 强制 100% 比例并定位到最右侧
                 let nativeZoom = viewer.viewport.imageToViewportZoom(1.0);
-                
-                // 侦测安卓屏幕/高分屏的放大倍数（如果没取到就默认 1 倍）
-                let dpr = window.devicePixelRatio || 1;
-                
-                // 除以屏幕放大倍数，强行抵消系统的放大，还原真实物理像素！
-                let truePhysicalZoom = nativeZoom / dpr;
-                
-                viewer.viewport.zoomTo(truePhysicalZoom, null, true);
-                // ===========================================
-
-                // 定位到最右侧
+                viewer.viewport.zoomTo(nativeZoom, null, true);
                 let vpWidth = viewer.viewport.getBounds().width;
                 let startX = 1.0 - (vpWidth / 2); 
                 viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
@@ -151,9 +143,8 @@
                     let currentPos = viewer.viewport.getCenter();
                     let newX = currentPos.x + scrollStep;
                     
-                    // 自动轮播侦测：到达最左侧边缘
                     let vpWidth = viewer.viewport.getBounds().width;
-                    let leftLimit = vpWidth / 2;
+                    let leftLimit = vpWidth / 2; 
 
                     if (newX < leftLimit) {
                         if (isAutoCycle) {
@@ -219,7 +210,7 @@
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen();
             } else {
-                if(document.exitFullscreen) document.exitFullscreen();
+                document.exitFullscreen();
             }
         }
 
