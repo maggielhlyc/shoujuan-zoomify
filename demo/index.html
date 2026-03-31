@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 30.0 原图满宽轮播版</title>
+    <title>私人美术館 - 31.0 导览满宽定稿版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -17,7 +17,7 @@
 
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; }
         
-        /* 导览图：宽度 100vw 顶到头，高度由 JS 动态计算 */
+        /* 【修改1】：去掉了 height: 8vh，高度交由代码精准计算 */
         #navi-container { width: 100vw; background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: all 0.4s; }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
@@ -64,14 +64,15 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
+        // 【⚠️】请替换为您真实的 GitHub 文件夹名称
         var artworks = [
-            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。" },
-            { name: "02_高其佩 · 荷塘双鸭图", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: "高其佩指墨神品。" }
+            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: "此卷为张同仿周之冕之作。修复：抵消安卓系统放大，呈现原生比例。" },
+            { name: "02_高其佩 · 荷塘双鸭图", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: "高其佩指墨神品。修复：抵消安卓系统放大，呈现原生比例。" }
         ];
 
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
         var currentArtIndex = 0;
-        var isAutoCycle = false; 
+        var isAutoCycle = false;
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -94,7 +95,7 @@
             if (viewer) { viewer.destroy(); viewer = null; }
 
             const outer = document.getElementById('navi-outer');
-            // 保留：根据屏幕宽度和画卷比例，动态计算导览图高度，确保左右顶边
+            // 【修改2】：精准算出让导览图刚好撑满 100vw 的高度
             let exactNaviHeight = window.innerWidth / (art.width / art.height);
             outer.innerHTML = '<div id="navi-container" style="height: ' + exactNaviHeight + 'px;"></div>';
 
@@ -126,18 +127,17 @@
                 document.getElementById('full-desc').innerText = art.desc;
                 document.getElementById('art-selector').value = index;
 
-                // ====== 核心还原：恢复 1:1 原图比例 + 右起游览 ======
-                // 1. 恢复强制缩放到 100% 物理像素级比例（不再强行撑满高度）
+                // ====== 原生代码保留：原生物理像素 1:1 ======
                 let nativeZoom = viewer.viewport.imageToViewportZoom(1.0);
-                viewer.viewport.zoomTo(nativeZoom, null, true);
+                let dpr = window.devicePixelRatio || 1;
+                let truePhysicalZoom = nativeZoom / dpr;
+                
+                viewer.viewport.zoomTo(truePhysicalZoom, null, true);
 
-                // 2. 获取当前的视口宽度比例，计算出右边缘的精确坐标
+                // 定位到最右侧
                 let vpWidth = viewer.viewport.getBounds().width;
                 let startX = 1.0 - (vpWidth / 2); 
-                
-                // 3. 瞬间平移到画卷的最右端起点
                 viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
-                // ========================================================
 
                 startAnimationLoop();
             });
@@ -149,8 +149,9 @@
                     let currentPos = viewer.viewport.getCenter();
                     let newX = currentPos.x + scrollStep;
                     
+                    // 自动轮播侦测：到达最左侧边缘
                     let vpWidth = viewer.viewport.getBounds().width;
-                    let leftLimit = vpWidth / 2; 
+                    let leftLimit = vpWidth / 2;
 
                     if (newX < leftLimit) {
                         if (isAutoCycle) {
@@ -216,10 +217,17 @@
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen();
             } else {
-                document.exitFullscreen();
+                if(document.exitFullscreen) document.exitFullscreen();
             }
         }
 
         function toggleDetails(e) { e.stopPropagation(); document.body.classList.toggle('show-details'); }
         function switchArt(val) { isPlaying = true; document.body.classList.remove('paused', 'show-details'); loadArt(parseInt(val)); }
-        function adjustSpeed(delta) { let dir = scrollStep > 0 ? 1 : -1; scrollStep = (
+        function adjustSpeed(delta) { let dir = scrollStep > 0 ? 1 : -1; scrollStep = (Math.abs(scrollStep) + delta) * dir; scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; }
+        function reverseDir() { scrollStep = -scrollStep; }
+
+        if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('sw.js').catch(err=>{}); }); }
+        window.onload = initGallery;
+    </script>
+</body>
+</html>
