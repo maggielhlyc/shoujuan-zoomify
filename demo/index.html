@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 36.0 物理校准定稿版</title>
+    <title>私人美术館 - 37.0 绝对锁定定稿版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,14 +15,17 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        /* 恒定距离、逆向生长布局手法的终极 CSS */
+        /* 外层：控制恒定的 30px 高度逆向生长 */
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
         
-        /* 【核心修复】：彻底去除宽高过渡动画，确保引擎能读取到瞬间确定的尺寸 */
-        #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: transform 0.1s linear; }
+        /* 【重构1】：新增的 mover 层，专门用来负责雷达左右滑动，隔离 CSS 污染 */
+        #navi-mover { transition: transform 0.1s linear; }
+        
+        /* 内层：绝对纯净的引擎盒子，只负责尺寸，不带任何移动动画 */
+        #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
-        body.paused #navi-container { background: var(--bg-color); border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
+        body.paused #navi-container { border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
 
         #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; pointer-events: none; }
         body.paused #header-zone { top: 0; }
@@ -38,7 +41,6 @@
         .btn { padding: 1vh 1.8vh; background: rgba(70, 60, 50, 0.8); color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 4px; cursor: pointer; font-size: 1.5vh; }
         .btn:hover { background: var(--accent-color); color: #000; }
         select { max-width: 35vw; background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.5vh; border-radius: 4px; outline: none;}
-        
         .btn.active-cycle { background: #2d4a35; border-color: #4CAF50; color: #fff; box-shadow: 0 0 10px rgba(76,175,80,0.5); }
     </style>
 </head>
@@ -68,29 +70,28 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】特别提醒：粘贴真实画作介绍时，一定要保留两边的反引号 ` ` ，绝对不要用双引号 ""
-        // 而且每个大括号 `{...}` 之间的英文逗号 `,` 千万别丢！
+        // 【⚠️】特别提醒：请在下方填入真实的画作介绍，注意保留所有反引号和逗号！
         var artworks = [
             { 
                 name: "01_张 同（清） 仿周之冕花卉卷", 
                 width: 21119, 
                 height: 1146, 
                 folder: "tiles/01_zhang_tong/", 
-                desc: `在此粘贴第一幅画的介绍文字，保留两边的反引号` 
-            }, // <-- 注意这个逗号，别丢！
+                desc: `在此粘贴第一幅画的介绍文字` 
+            },
             { 
                 name: "02_华拓 祁连山卷-全卷", 
                 width: 12867, 
                 height: 832, 
                 folder: "tiles/02_hua_tuo/", 
-                desc: `在此粘贴第二幅画的介绍文字，保留两边的反引号` 
-            }, // <-- 注意这个逗号，别丢！
+                desc: `在此粘贴第二幅画的介绍文字` 
+            },
             { 
                 name: "03_金楙 秋岩爽气卷", 
                 width: 5546, 
                 height: 582, 
                 folder: "tiles/03_jin_mao/", 
-                desc: `在此粘贴第三幅画的介绍文字，保留两边的反引号` 
+                desc: `在此粘贴第三幅画的介绍文字` 
             }
         ];
 
@@ -136,12 +137,12 @@
             }
             naviScale = 1.0; 
             
-            outer.innerHTML = '<div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div>';
+            // 【重构2】：初始化时，注入双层壳子（mover包着container）
+            outer.innerHTML = '<div id="navi-mover"><div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div></div>';
 
             viewer = OpenSeadragon({
                 id: "viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                // 巧妙支持单图或 A、B、C 坐标系拼接数组写法
                 tileSources: Array.isArray(art.folder) ? art.folder : { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder },
                 canvasColor: '#221F1C',
                 showNavigationControl: false,
@@ -167,7 +168,6 @@
                 document.getElementById('full-desc').innerText = art.desc;
                 document.getElementById('art-selector').value = index;
 
-                // ====== 智能缩放：防拉伸 + 防裁切引擎 ======
                 let dpr = window.devicePixelRatio || 1;
                 let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
                 
@@ -177,14 +177,9 @@
                 let finalZoom = Math.min(nativeZoom, fitZoom);
                 viewer.viewport.zoomTo(finalZoom, null, true);
                 
-                // 定位到最右侧引首
                 let vpWidth = viewer.viewport.getBounds().width;
                 let startX = 1.0 - (vpWidth / 2); 
                 viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
-
-                // 【核心修复 A】：画面加载完毕并滚到引首后，瞬间触发浏览器原生的 resize 事件，
-                // 欺骗引擎，强制它在最正确的时刻、以最正确的物理尺寸校准红框坐标库。
-                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
 
                 startAnimationLoop();
             });
@@ -201,9 +196,11 @@
                 naviContainer.style.height = (baseNaviHeight * naviScale) + 'px';
             }
             
-            // 【核心修复 B】：每次放大/缩小导览图，瞬间触发全窗口 resize 事件，
-            // 彻底解决了 OpenSeadragon 引擎在 Canvas 坐标系重绘上的盲区。红框现在精准到像素级！
-            window.dispatchEvent(new Event('resize'));
+            // 【重构3：黄金修复】：不仅更新尺寸，并且强制导览图引擎在新的尺寸下瞬间“回正对齐”
+            if (viewer && viewer.navigator) {
+                viewer.navigator.updateSize();
+                viewer.navigator.viewport.goHome(true); 
+            }
             
             updateNaviPosition(); 
         }
@@ -251,8 +248,10 @@
         function updateNaviPosition() {
             if (!viewer || !viewer.viewport || viewer.world.getItemCount() === 0) return;
             const naviOuter = document.getElementById('navi-outer');
-            const naviContainer = document.getElementById('navi-container');
-            if (!naviOuter || !naviContainer) return;
+            
+            // 【重构4】：把所有的左右滑动，全部交给 mover 壳子，保护 container 不受污染
+            const naviMover = document.getElementById('navi-mover');
+            if (!naviOuter || !naviMover) return;
             
             const imageBounds = viewer.world.getHomeBounds();
             const mainCenter = viewer.viewport.getCenter(true); 
@@ -260,12 +259,10 @@
             let p = mainCenter.x / imageBounds.width;
             p = Math.max(0, Math.min(1, p));
             
-            // 完美的导览图智能雷达追踪逻辑
             let translate_X = baseNaviWidth * (p - 0.5) * (1 - naviScale);
-            naviContainer.style.transform = `translateX(${translate_X}px)`;
+            naviMover.style.transform = `translateX(${translate_X}px)`;
 
             const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
-            // 基于底线、向上逆向生长的 30px 恒定距离布局。
             naviOuter.style.top = (pixelTopLeft.y - 30) + "px";
         }
 
