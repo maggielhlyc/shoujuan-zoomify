@@ -92,9 +92,95 @@
         var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
-            { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` }
-        ];
+            { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` }，
+{ 
+            name: "04_清明上河图 (宋本 10段拼接)", 
+            width: 395409,  // 三段宽度的总和，计算极其完美！
+            height: 7595,   // 画卷的高度
+            desc: `这是由10段独立扫描件在代码中无缝拼接而成的超长手卷。`,
+            
+            folder: [
+                // ------ 第 1 块：（最左侧结尾） ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_j/" },
+                    x: 0,       
+                    y: 0,
+                    width: 50000 // ⚠️【已修复】这里必须是 50000，和上面的宽度对应
+                },
 
+                // ------ 第 2 块：（中间画心） ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_i/" },
+                    x: 50000,   
+                    y: 0,
+                    width: 50000 // ⚠️【已修复】
+                },
+
+                // ------ 第 3 块： ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 10492, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_h/" },
+                    x: 100000,   
+                    y: 0,
+                    width: 10492 // ⚠️【已修复】
+                },
+
+                // ------ 第 4 块：（中间画心） ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_g/" },
+                    x: 110492,  
+                    y: 0,
+                    width: 50000 // ⚠️【已修复】
+                },
+
+                // ------ 第 5 块：（中间画心） ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_f/" },
+                    x: 160492,  
+                    y: 0,
+                    width: 50000 // ⚠️【已修复】
+                },
+
+                // ------ 第 6 块：（中间画心） ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 2863, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_e/" },
+                    x: 210492,  
+                    y: 0,
+                    width: 2863  // ⚠️【已修复】
+                },
+
+                // ------ 第 7 块：（中间画心） ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_d/" },
+                    x: 213355,   
+                    y: 0,
+                    width: 50000 // ⚠️【已修复】
+                },
+
+                // ------ 第 8 块：（中间画心） ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 38778, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_c/" },
+                    x: 263355,   
+                    y: 0,
+                    width: 38778 // ⚠️【已修复】
+                },
+
+                // ------ 第 9 块：（中间画心） ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_b/" },
+                    x: 302133,   
+                    y: 0,
+                    width: 50000 // ⚠️【已修复】
+                },
+
+                // ------ 第 10 块：（引首） ------
+                {
+                    tileSource: { type: 'zoomifytileservice', width: 43276, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_a/" },
+                    x: 352133,   
+                    y: 0,
+                    width: 43276 // ⚠️【已修复】
+                }
+            ]
+        }
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
         var currentArtIndex = 0;
         var isAutoCycle = false;
