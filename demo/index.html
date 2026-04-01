@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 34.0 恒定雷达版</title>
+    <title>私人美术館 - 35.0 雷达红框精准版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,11 +15,10 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        /* 【核心修复 1/2】：增加 align-items: flex-end 和 translateY(-100%)。
-           这句魔法 CSS 的意思是：无论里面内容多高，整个容器永远以“底边”为基准线，强行把自己提上去。 */
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
         
-        #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: width 0.3s, height 0.3s, transform 0.1s linear; }
+        /* 【核心修复 1】：去掉了 width 和 height 的 transition，避免拉伸导致画布坐标错乱 */
+        #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: transform 0.1s linear; }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
         body.paused #navi-container { background: var(--bg-color); border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
@@ -68,20 +67,11 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】请替换为您真实的文本内容
+        // 【⚠️】请替换为您真实的文本内容和拼接数组
         var artworks = [
-            { 
-                name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", 
-                desc: `手卷 设色纸本...` 
-            },
-            { 
-                name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", 
-                desc: `作者华拓...` 
-            },
-            { 
-                name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", 
-                desc: `作者金楙...` 
-            }
+            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `手卷 设色纸本...` },
+            { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `作者华拓...` },
+            { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `作者金楙...` }
         ];
 
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
@@ -126,160 +116,4 @@
             }
             naviScale = 1.0; 
             
-            outer.innerHTML = '<div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div>';
-
-            viewer = OpenSeadragon({
-                id: "viewer",
-                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: Array.isArray(art.folder) ? art.folder : { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder },
-                canvasColor: '#221F1C',
-                showNavigationControl: false,
-                showNavigator: true,
-                navigatorId: "navi-container",
-                navigatorAutoFade: false,
-                gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
-                visibilityRatio: 1.0, 
-                constrainDuringPan: true,
-                defaultZoomLevel: 1.0,
-                animationTime: 0,
-                blendingTime: 0.1
-            });
-
-            viewer.addHandler('canvas-click', function(event) {
-                if (!event.quick) return; 
-                event.preventDefaultAction = true; 
-                togglePlayState();
-            });
-
-            viewer.addHandler('open', function() {
-                document.getElementById('art-title').innerText = art.name;
-                document.getElementById('full-desc').innerText = art.desc;
-                document.getElementById('art-selector').value = index;
-
-                let dpr = window.devicePixelRatio || 1;
-                let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
-                
-                viewer.viewport.fitVertically(true);
-                let fitZoom = viewer.viewport.getZoom(true);
-                
-                let finalZoom = Math.min(nativeZoom, fitZoom);
-                viewer.viewport.zoomTo(finalZoom, null, true);
-                
-                let vpWidth = viewer.viewport.getBounds().width;
-                let startX = 1.0 - (vpWidth / 2); 
-                viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
-
-                startAnimationLoop();
-            });
-        }
-
-        function zoomNavi(delta) {
-            naviScale += delta;
-            if (naviScale < 1) naviScale = 1; 
-            if (naviScale > 10) naviScale = 10; 
-            
-            const naviContainer = document.getElementById('navi-container');
-            if(naviContainer) {
-                naviContainer.style.width = (baseNaviWidth * naviScale) + 'px';
-                naviContainer.style.height = (baseNaviHeight * naviScale) + 'px';
-            }
-            updateNaviPosition(); 
-        }
-
-        function startAnimationLoop() {
-            function step() {
-                if (isPlaying && viewer && viewer.viewport) {
-                    let currentPos = viewer.viewport.getCenter();
-                    let newX = currentPos.x + scrollStep;
-                    
-                    let vpWidth = viewer.viewport.getBounds().width;
-                    let leftLimit = vpWidth / 2;
-
-                    if (newX < leftLimit) {
-                        if (isAutoCycle) {
-                            let nextIndex = (currentArtIndex + 1) % artworks.length;
-                            loadArt(nextIndex);
-                            return; 
-                        } else {
-                            newX = 1.1; 
-                        }
-                    }
-                    if (newX > 1.1) newX = -0.1;
-                    
-                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
-                }
-                updateNaviPosition();
-                animationRequest = requestAnimationFrame(step);
-            }
-            animationRequest = requestAnimationFrame(step);
-        }
-
-        function toggleAutoCycle() {
-            isAutoCycle = !isAutoCycle;
-            const btn = document.getElementById('cycle-btn');
-            if (isAutoCycle) {
-                btn.innerText = "自动轮播：开";
-                btn.classList.add('active-cycle');
-            } else {
-                btn.innerText = "自动轮播：关";
-                btn.classList.remove('active-cycle');
-            }
-        }
-
-        function updateNaviPosition() {
-            if (!viewer || !viewer.viewport || viewer.world.getItemCount() === 0) return;
-            const naviOuter = document.getElementById('navi-outer');
-            const naviContainer = document.getElementById('navi-container');
-            if (!naviOuter || !naviContainer) return;
-            
-            const imageBounds = viewer.world.getHomeBounds();
-            const mainCenter = viewer.viewport.getCenter(true); 
-            
-            let p = mainCenter.x / imageBounds.width;
-            p = Math.max(0, Math.min(1, p));
-            
-            let translate_X = baseNaviWidth * (p - 0.5) * (1 - naviScale);
-            naviContainer.style.transform = `translateX(${translate_X}px)`;
-
-            const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
-            
-            // 【核心修复 2/2】：剥离复杂的 JS 高度运算，直接锁死在主图顶部上方 30px！
-            naviOuter.style.top = (pixelTopLeft.y - 30) + "px";
-        }
-
-        function togglePlayState() {
-            if (document.body.classList.contains('show-details')) {
-                document.body.classList.remove('show-details');
-                return;
-            }
-            isPlaying = !isPlaying;
-            document.body.classList.toggle('paused', !isPlaying);
-        }
-
-        function resetView() {
-            if (viewer) {
-                viewer.viewport.goHome();
-                isPlaying = true;
-                document.body.classList.remove('paused', 'show-details');
-            }
-        }
-
-        function toggleFullscreen(e) {
-            e.stopPropagation();
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
-            } else {
-                if(document.exitFullscreen) document.exitFullscreen();
-            }
-        }
-
-        function toggleDetails(e) { e.stopPropagation(); document.body.classList.toggle('show-details'); }
-        function switchArt(val) { isPlaying = true; document.body.classList.remove('paused', 'show-details'); loadArt(parseInt(val)); }
-        function adjustSpeed(delta) { let dir = scrollStep > 0 ? 1 : -1; scrollStep = (Math.abs(scrollStep) + delta) * dir; scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; }
-        function reverseDir() { scrollStep = -scrollStep; }
-
-        if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('sw.js').catch(err=>{}); }); }
-        window.onload = initGallery;
-    </script>
-</body>
-</html>
+            outer.innerHTML = '
