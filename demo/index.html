@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 36.0 终极安全避险版</title>
+    <title>私人美术館 - 36.0 物理校准定稿版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,7 +15,10 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
+        /* 恒定距离、逆向生长布局手法的终极 CSS */
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
+        
+        /* 【核心修复】：彻底去除宽高过渡动画，确保引擎能读取到瞬间确定的尺寸 */
         #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: transform 0.1s linear; }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
@@ -35,6 +38,7 @@
         .btn { padding: 1vh 1.8vh; background: rgba(70, 60, 50, 0.8); color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 4px; cursor: pointer; font-size: 1.5vh; }
         .btn:hover { background: var(--accent-color); color: #000; }
         select { max-width: 35vw; background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.5vh; border-radius: 4px; outline: none;}
+        
         .btn.active-cycle { background: #2d4a35; border-color: #4CAF50; color: #fff; box-shadow: 0 0 10px rgba(76,175,80,0.5); }
     </style>
 </head>
@@ -64,7 +68,8 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️极其重要】：注意看每个大括号后面的逗号，千万别删！
+        // 【⚠️】特别提醒：粘贴真实画作介绍时，一定要保留两边的反引号 ` ` ，绝对不要用双引号 ""
+        // 而且每个大括号 `{...}` 之间的英文逗号 `,` 千万别丢！
         var artworks = [
             { 
                 name: "01_张 同（清） 仿周之冕花卉卷", 
@@ -72,23 +77,21 @@
                 height: 1146, 
                 folder: "tiles/01_zhang_tong/", 
                 desc: `在此粘贴第一幅画的介绍文字，保留两边的反引号` 
-            }, // <-- 注意这个逗号！
-
+            }, // <-- 注意这个逗号，别丢！
             { 
                 name: "02_华拓 祁连山卷-全卷", 
                 width: 12867, 
                 height: 832, 
                 folder: "tiles/02_hua_tuo/", 
                 desc: `在此粘贴第二幅画的介绍文字，保留两边的反引号` 
-            }, // <-- 注意这个逗号！
-
+            }, // <-- 注意这个逗号，别丢！
             { 
                 name: "03_金楙 秋岩爽气卷", 
                 width: 5546, 
                 height: 582, 
                 folder: "tiles/03_jin_mao/", 
                 desc: `在此粘贴第三幅画的介绍文字，保留两边的反引号` 
-            }  // <-- 最后一个大括号后面可以没有逗号
+            }
         ];
 
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
@@ -100,20 +103,15 @@
         var naviScale = 1.0;
 
         function initGallery() {
-            try {
-                const selector = document.getElementById('art-selector');
-                selector.innerHTML = ""; 
-                artworks.forEach((art, index) => {
-                    let opt = document.createElement('option');
-                    opt.value = index;
-                    opt.innerHTML = (index+1) + ". " + art.name.split('_').pop();
-                    selector.appendChild(opt);
-                });
-                loadArt(0);
-            } catch (e) {
-                console.error("初始化失败，请检查 artworks 列表的标点符号！", e);
-                document.getElementById('art-title').innerText = "代码格式错误，请按 F12 查看控制台";
-            }
+            const selector = document.getElementById('art-selector');
+            selector.innerHTML = ""; 
+            artworks.forEach((art, index) => {
+                let opt = document.createElement('option');
+                opt.value = index;
+                opt.innerHTML = (index+1) + ". " + art.name.split('_').pop();
+                selector.appendChild(opt);
+            });
+            loadArt(0);
         }
 
         function loadArt(index) {
@@ -143,6 +141,7 @@
             viewer = OpenSeadragon({
                 id: "viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+                // 巧妙支持单图或 A、B、C 坐标系拼接数组写法
                 tileSources: Array.isArray(art.folder) ? art.folder : { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder },
                 canvasColor: '#221F1C',
                 showNavigationControl: false,
@@ -164,31 +163,30 @@
             });
 
             viewer.addHandler('open', function() {
-                try {
-                    document.getElementById('art-title').innerText = art.name;
-                    document.getElementById('full-desc').innerText = art.desc;
-                    document.getElementById('art-selector').value = index;
+                document.getElementById('art-title').innerText = art.name;
+                document.getElementById('full-desc').innerText = art.desc;
+                document.getElementById('art-selector').value = index;
 
-                    let dpr = window.devicePixelRatio || 1;
-                    let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
-                    
-                    viewer.viewport.fitVertically(true);
-                    let fitZoom = viewer.viewport.getZoom(true);
-                    
-                    let finalZoom = Math.min(nativeZoom, fitZoom);
-                    viewer.viewport.zoomTo(finalZoom, null, true);
-                    
-                    let vpWidth = viewer.viewport.getBounds().width;
-                    let startX = 1.0 - (vpWidth / 2); 
-                    viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
+                // ====== 智能缩放：防拉伸 + 防裁切引擎 ======
+                let dpr = window.devicePixelRatio || 1;
+                let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
+                
+                viewer.viewport.fitVertically(true);
+                let fitZoom = viewer.viewport.getZoom(true);
+                
+                let finalZoom = Math.min(nativeZoom, fitZoom);
+                viewer.viewport.zoomTo(finalZoom, null, true);
+                
+                // 定位到最右侧引首
+                let vpWidth = viewer.viewport.getBounds().width;
+                let startX = 1.0 - (vpWidth / 2); 
+                viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
 
-                    // 【终极安全修复】：使用浏览器原生的 resize 事件来强制校准红框，绝不引发引擎报错
-                    setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
+                // 【核心修复 A】：画面加载完毕并滚到引首后，瞬间触发浏览器原生的 resize 事件，
+                // 欺骗引擎，强制它在最正确的时刻、以最正确的物理尺寸校准红框坐标库。
+                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
 
-                    startAnimationLoop();
-                } catch (e) {
-                    console.error("画卷展开时发生错误:", e);
-                }
+                startAnimationLoop();
             });
         }
 
@@ -203,7 +201,8 @@
                 naviContainer.style.height = (baseNaviHeight * naviScale) + 'px';
             }
             
-            // 【终极安全修复】：极其安全的红框校准触发器
+            // 【核心修复 B】：每次放大/缩小导览图，瞬间触发全窗口 resize 事件，
+            // 彻底解决了 OpenSeadragon 引擎在 Canvas 坐标系重绘上的盲区。红框现在精准到像素级！
             window.dispatchEvent(new Event('resize'));
             
             updateNaviPosition(); 
@@ -261,10 +260,12 @@
             let p = mainCenter.x / imageBounds.width;
             p = Math.max(0, Math.min(1, p));
             
+            // 完美的导览图智能雷达追踪逻辑
             let translate_X = baseNaviWidth * (p - 0.5) * (1 - naviScale);
             naviContainer.style.transform = `translateX(${translate_X}px)`;
 
             const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
+            // 基于底线、向上逆向生长的 30px 恒定距离布局。
             naviOuter.style.top = (pixelTopLeft.y - 30) + "px";
         }
 
