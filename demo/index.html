@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 35.1 雷达红框修复版</title>
+    <title>私人美术館 - 36.0 终极安全避险版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -16,7 +16,6 @@
         body.paused { cursor: default; }
 
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
-        
         #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: transform 0.1s linear; }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
@@ -36,7 +35,6 @@
         .btn { padding: 1vh 1.8vh; background: rgba(70, 60, 50, 0.8); color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 4px; cursor: pointer; font-size: 1.5vh; }
         .btn:hover { background: var(--accent-color); color: #000; }
         select { max-width: 35vw; background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.5vh; border-radius: 4px; outline: none;}
-        
         .btn.active-cycle { background: #2d4a35; border-color: #4CAF50; color: #fff; box-shadow: 0 0 10px rgba(76,175,80,0.5); }
     </style>
 </head>
@@ -66,20 +64,31 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】特别提醒：粘贴您自己真实的画作介绍时，一定要保留两边的反引号 ` ` ，绝对不要用双引号 ""
+        // 【⚠️极其重要】：注意看每个大括号后面的逗号，千万别删！
         var artworks = [
             { 
-                name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", 
-                desc: `这是第一幅画的介绍` 
-            },
+                name: "01_张 同（清） 仿周之冕花卉卷", 
+                width: 21119, 
+                height: 1146, 
+                folder: "tiles/01_zhang_tong/", 
+                desc: `在此粘贴第一幅画的介绍文字，保留两边的反引号` 
+            }, // <-- 注意这个逗号！
+
             { 
-                name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", 
-                desc: `这是第二幅画的介绍` 
-            },
+                name: "02_华拓 祁连山卷-全卷", 
+                width: 12867, 
+                height: 832, 
+                folder: "tiles/02_hua_tuo/", 
+                desc: `在此粘贴第二幅画的介绍文字，保留两边的反引号` 
+            }, // <-- 注意这个逗号！
+
             { 
-                name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", 
-                desc: `这是第三幅画的介绍` 
-            }
+                name: "03_金楙 秋岩爽气卷", 
+                width: 5546, 
+                height: 582, 
+                folder: "tiles/03_jin_mao/", 
+                desc: `在此粘贴第三幅画的介绍文字，保留两边的反引号` 
+            }  // <-- 最后一个大括号后面可以没有逗号
         ];
 
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
@@ -91,15 +100,20 @@
         var naviScale = 1.0;
 
         function initGallery() {
-            const selector = document.getElementById('art-selector');
-            selector.innerHTML = ""; 
-            artworks.forEach((art, index) => {
-                let opt = document.createElement('option');
-                opt.value = index;
-                opt.innerHTML = (index+1) + ". " + art.name.split('_').pop();
-                selector.appendChild(opt);
-            });
-            loadArt(0);
+            try {
+                const selector = document.getElementById('art-selector');
+                selector.innerHTML = ""; 
+                artworks.forEach((art, index) => {
+                    let opt = document.createElement('option');
+                    opt.value = index;
+                    opt.innerHTML = (index+1) + ". " + art.name.split('_').pop();
+                    selector.appendChild(opt);
+                });
+                loadArt(0);
+            } catch (e) {
+                console.error("初始化失败，请检查 artworks 列表的标点符号！", e);
+                document.getElementById('art-title').innerText = "代码格式错误，请按 F12 查看控制台";
+            }
         }
 
         function loadArt(index) {
@@ -150,29 +164,31 @@
             });
 
             viewer.addHandler('open', function() {
-                document.getElementById('art-title').innerText = art.name;
-                document.getElementById('full-desc').innerText = art.desc;
-                document.getElementById('art-selector').value = index;
+                try {
+                    document.getElementById('art-title').innerText = art.name;
+                    document.getElementById('full-desc').innerText = art.desc;
+                    document.getElementById('art-selector').value = index;
 
-                let dpr = window.devicePixelRatio || 1;
-                let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
-                
-                viewer.viewport.fitVertically(true);
-                let fitZoom = viewer.viewport.getZoom(true);
-                
-                let finalZoom = Math.min(nativeZoom, fitZoom);
-                viewer.viewport.zoomTo(finalZoom, null, true);
-                
-                let vpWidth = viewer.viewport.getBounds().width;
-                let startX = 1.0 - (vpWidth / 2); 
-                viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
+                    let dpr = window.devicePixelRatio || 1;
+                    let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
+                    
+                    viewer.viewport.fitVertically(true);
+                    let fitZoom = viewer.viewport.getZoom(true);
+                    
+                    let finalZoom = Math.min(nativeZoom, fitZoom);
+                    viewer.viewport.zoomTo(finalZoom, null, true);
+                    
+                    let vpWidth = viewer.viewport.getBounds().width;
+                    let startX = 1.0 - (vpWidth / 2); 
+                    viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
 
-                // 【修复】：删除了报错指令，只保留安全的重绘尺寸指令
-                if (viewer.navigator) {
-                    viewer.navigator.updateSize();
+                    // 【终极安全修复】：使用浏览器原生的 resize 事件来强制校准红框，绝不引发引擎报错
+                    setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
+
+                    startAnimationLoop();
+                } catch (e) {
+                    console.error("画卷展开时发生错误:", e);
                 }
-
-                startAnimationLoop();
             });
         }
 
@@ -187,5 +203,104 @@
                 naviContainer.style.height = (baseNaviHeight * naviScale) + 'px';
             }
             
-            // 【修复】：安全重绘红框
-            if (viewer && viewer.navigator
+            // 【终极安全修复】：极其安全的红框校准触发器
+            window.dispatchEvent(new Event('resize'));
+            
+            updateNaviPosition(); 
+        }
+
+        function startAnimationLoop() {
+            function step() {
+                if (isPlaying && viewer && viewer.viewport) {
+                    let currentPos = viewer.viewport.getCenter();
+                    let newX = currentPos.x + scrollStep;
+                    
+                    let vpWidth = viewer.viewport.getBounds().width;
+                    let leftLimit = vpWidth / 2;
+
+                    if (newX < leftLimit) {
+                        if (isAutoCycle) {
+                            let nextIndex = (currentArtIndex + 1) % artworks.length;
+                            loadArt(nextIndex);
+                            return; 
+                        } else {
+                            newX = 1.1; 
+                        }
+                    }
+                    if (newX > 1.1) newX = -0.1;
+                    
+                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
+                }
+                updateNaviPosition();
+                animationRequest = requestAnimationFrame(step);
+            }
+            animationRequest = requestAnimationFrame(step);
+        }
+
+        function toggleAutoCycle() {
+            isAutoCycle = !isAutoCycle;
+            const btn = document.getElementById('cycle-btn');
+            if (isAutoCycle) {
+                btn.innerText = "自动轮播：开";
+                btn.classList.add('active-cycle');
+            } else {
+                btn.innerText = "自动轮播：关";
+                btn.classList.remove('active-cycle');
+            }
+        }
+
+        function updateNaviPosition() {
+            if (!viewer || !viewer.viewport || viewer.world.getItemCount() === 0) return;
+            const naviOuter = document.getElementById('navi-outer');
+            const naviContainer = document.getElementById('navi-container');
+            if (!naviOuter || !naviContainer) return;
+            
+            const imageBounds = viewer.world.getHomeBounds();
+            const mainCenter = viewer.viewport.getCenter(true); 
+            
+            let p = mainCenter.x / imageBounds.width;
+            p = Math.max(0, Math.min(1, p));
+            
+            let translate_X = baseNaviWidth * (p - 0.5) * (1 - naviScale);
+            naviContainer.style.transform = `translateX(${translate_X}px)`;
+
+            const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
+            naviOuter.style.top = (pixelTopLeft.y - 30) + "px";
+        }
+
+        function togglePlayState() {
+            if (document.body.classList.contains('show-details')) {
+                document.body.classList.remove('show-details');
+                return;
+            }
+            isPlaying = !isPlaying;
+            document.body.classList.toggle('paused', !isPlaying);
+        }
+
+        function resetView() {
+            if (viewer) {
+                viewer.viewport.goHome();
+                isPlaying = true;
+                document.body.classList.remove('paused', 'show-details');
+            }
+        }
+
+        function toggleFullscreen(e) {
+            e.stopPropagation();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if(document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+
+        function toggleDetails(e) { e.stopPropagation(); document.body.classList.toggle('show-details'); }
+        function switchArt(val) { isPlaying = true; document.body.classList.remove('paused', 'show-details'); loadArt(parseInt(val)); }
+        function adjustSpeed(delta) { let dir = scrollStep > 0 ? 1 : -1; scrollStep = (Math.abs(scrollStep) + delta) * dir; scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; }
+        function reverseDir() { scrollStep = -scrollStep; }
+
+        if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('sw.js').catch(err=>{}); }); }
+        window.onload = initGallery;
+    </script>
+</body>
+</html>
