@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 39.0 自由探索定稿版</title>
+    <title>私人美术館 - 40.0 智能防遮挡定稿版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -26,9 +26,32 @@
         body.paused #header-zone { top: 0; }
         #art-title { font-size: 3.2vh; color: var(--accent-color); letter-spacing: 4px; font-weight: bold; text-align: center; }
         
-        #control-bar { position: absolute; bottom: -15vh; left: 0; width: 100%; height: 12vh; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); transition: all 0.4s ease; z-index: 110; padding: 0 20px; }
-        body.paused #control-bar { bottom: 0; }
-        body.show-details #control-bar { bottom: 40vh; background: none; }
+        /* ==========================================
+           【核心 CSS 升级】：全自动高度自适应控制栏
+           ========================================== */
+        #control-bar { 
+            position: absolute; 
+            bottom: 0; /* 死死贴住屏幕底边 */
+            left: 0; 
+            width: 100%; 
+            height: auto; /* 放弃固定高度，让按钮行数自动撑开 */
+            min-height: 80px;
+            padding: 20px 20px 30px 20px; /* 底部预留安全距离 */
+            display: flex; 
+            flex-wrap: wrap; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 12px; 
+            background: linear-gradient(to top, rgba(15,10,5,0.98) 40%, rgba(15,10,5,0.7) 80%, transparent); 
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.4s ease; 
+            z-index: 110; 
+            /* 播放状态时，向下移动 100% 自己的高度完美隐藏 */
+            transform: translateY(100%); 
+        }
+        /* 暂停时，瞬间平滑弹回原位 */
+        body.paused #control-bar { transform: translateY(0); }
+        
+        body.show-details #control-bar { bottom: 40vh; transform: translateY(0); background: transparent; }
         
         #details-panel { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 100%); width: 90%; height: 40vh; background: var(--panel-bg); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 40px; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 105; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.2vh; box-shadow: 0 -15px 40px rgba(0,0,0,0.7); }
         body.show-details #details-panel { transform: translate(-50%, 0); }
@@ -53,8 +76,8 @@
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
         
-        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(-0.5)">导览-</button>
-        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(0.5)">导览+</button>
+        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(-0.1)">导览-</button>
+        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(0.1)">导览+</button>
         
         <button class="btn" onclick="resetView()">全景</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
@@ -65,23 +88,11 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】别忘了粘贴您的真实文字和逗号！
+        // 【⚠️】请务必保留反引号与逗号，粘贴您的真实介绍！
         var artworks = [
-            { 
-                name: "01_张 同（清） 仿周之冕花卉卷", 
-                width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", 
-                desc: `文字一` 
-            },
-            { 
-                name: "02_华拓 祁连山卷-全卷", 
-                width: 12867, height: 832, folder: "tiles/02_hua_tuo/", 
-                desc: `文字二` 
-            },
-            { 
-                name: "03_金楙 秋岩爽气卷", 
-                width: 5546, height: 582, folder: "tiles/03_jin_mao/", 
-                desc: `文字三` 
-            }
+            { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
+            { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
+            { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` }
         ];
 
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
@@ -102,6 +113,9 @@
                 selector.appendChild(opt);
             });
             loadArt(0);
+            
+            // 全局监听屏幕翻转或调整大小，动态重算高度
+            window.addEventListener('resize', handleSmartResize);
         }
 
         function loadArt(index) {
@@ -163,7 +177,9 @@
             });
         }
 
-        // 把计算沉底布局的逻辑提取出来，方便“全景”按钮复用
+        // ==========================================
+        // 【核心 JS 升级】：智能动态测距算法
+        // ==========================================
         function applyInitialLayout() {
             let art = artworks[currentArtIndex];
             let dpr = window.devicePixelRatio || 1;
@@ -178,10 +194,15 @@
             let imgRatio = art.height / art.width; 
             let vpHeight = viewer.viewport.getBounds().height; 
             
-            let bottomGapPx = 100; 
+            // 1. 动态获取控制栏在当前屏幕下（无论几行）的真实物理高度
+            let cbHeight = document.getElementById('control-bar').offsetHeight;
+            
+            // 2. 真实高度 + 15像素的呼吸留白，作为绝对安全距离
+            let bottomGapPx = cbHeight + 15; 
             let gapWorld = (bottomGapPx / window.innerHeight) * vpHeight;
 
             if (vpHeight > imgRatio) {
+                // 将画卷精准停靠在控制栏正上方
                 centerY = imgRatio + gapWorld - (vpHeight / 2);
             } else {
                 centerY = imgRatio / 2;
@@ -190,6 +211,29 @@
             let vpWidth = viewer.viewport.getBounds().width;
             let startX = 1.0 - (vpWidth / 2); 
             viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
+        }
+
+        // 监听屏幕翻转，实时保护画卷不被遮挡
+        function handleSmartResize() {
+            if (!viewer || !viewer.viewport) return;
+            
+            let art = artworks[currentArtIndex];
+            let imgRatio = art.height / art.width;
+            let vpHeight = viewer.viewport.getBounds().height;
+
+            let cbHeight = document.getElementById('control-bar').offsetHeight;
+            let bottomGapPx = cbHeight + 15;
+            let gapWorld = (bottomGapPx / window.innerHeight) * vpHeight;
+
+            if (vpHeight > imgRatio) {
+                centerY = imgRatio + gapWorld - (vpHeight / 2);
+            } else {
+                centerY = imgRatio / 2;
+            }
+
+            // 只调整高度（防遮挡），不改变用户当前观看的水平进度
+            let currentX = viewer.viewport.getCenter().x;
+            viewer.viewport.panTo(new OpenSeadragon.Point(currentX, centerY), true);
         }
 
         function zoomNavi(delta) {
@@ -231,8 +275,6 @@
                     }
                     if (newX > 1.1) newX = -0.1;
                     
-                    // 【核心修复】：将原本死板的 centerY 替换为 currentPos.y。
-                    // 这样，自动滚动只负责水平移动，纵向高度完全尊重您的手动缩放和拖拽！
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
                 }
                 updateNaviPosition();
@@ -283,7 +325,6 @@
 
         function resetView() {
             if (viewer) {
-                // 【升级】：现在点击全景，会完美回到带有黑边的沉底状态，而不是死板地居中
                 applyInitialLayout();
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
