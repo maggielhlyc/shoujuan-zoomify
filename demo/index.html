@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 42.0 终极定稿版</title>
+    <title>私人美术館 - 42.0 终极排版定稿版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -56,10 +56,8 @@
         <button class="btn" onclick="adjustSpeed(-0.000005)">减速</button>
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
-        
         <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(-0.1)">导览-</button>
         <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(0.1)">导览+</button>
-        
         <button class="btn" onclick="resetView()">全景</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
         <button id="fs-btn" class="btn" style="background:#2d4a35;" onclick="toggleFullscreen(event)">全屏</button>
@@ -69,28 +67,31 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】在这里粘贴您的数据，注意反引号和逗号
         var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
             { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` },
+            
             { 
                 name: "04_清明上河图 (宋本 10段无缝拼接)", 
                 width: 395409, 
                 height: 7595, 
-                desc: `这是由10段独立扫描件在代码中无缝拼接而成的超长手卷。`,
-                // 【⚠️关键修复】：顺序已完全反转，符合从右向左阅读
+                desc: `文字四`,
+                
+                // 【核心革新】：智能排版引擎。您不再需要写 `x` 坐标了！
+                // 代码会自动从数组的第一行开始，从左向右挨个排列拼接。
+                // ⚠️：如果现在的画面依然是反的，您只需要把这段 { ... part_j }, { ... part_i } 的行序上下颠倒过来即可！
                 folder: [
-                    { tileSource: { type: 'zoomifytileservice', width: 43276, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_a/" }, x: 352133, y: 0, width: 43276 },
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_b/" }, x: 302133, y: 0, width: 50000 },
-                    { tileSource: { type: 'zoomifytileservice', width: 38778, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_c/" }, x: 263355, y: 0, width: 38778 },
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_d/" }, x: 213355, y: 0, width: 50000 },
-                    { tileSource: { type: 'zoomifytileservice', width: 2863, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_e/" }, x: 210492, y: 0, width: 2863 },
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_f/" }, x: 160492, y: 0, width: 50000 },
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_g/" }, x: 110492, y: 0, width: 50000 },
-                    { tileSource: { type: 'zoomifytileservice', width: 10492, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_h/" }, x: 100000, y: 0, width: 10492 },
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_i/" }, x: 50000, y: 0, width: 50000 },
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_j/" }, x: 0, y: 0, width: 50000 }
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_a/" }, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_b/" }, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 10492, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_c/" }, width: 10492 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_d/" }, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_e/" }, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 2863, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_f/" }, width: 2863 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_g/" }, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 38778, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_h/" }, width: 38778 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_i/" }, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 43276, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_j/" }, width: 43276 }
                 ]
             }
         ];
@@ -139,16 +140,22 @@
             
             outer.innerHTML = '<div id="navi-mover"><div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div></div>';
 
-            // 智能坐标换算引擎
+            // ========================================================
+            // 【革命性解法】：坐标自动累加计算器。
+            // 自动按照您提供的数组顺序，把每一块严丝合缝地从左向右贴好！
+            // ========================================================
             let finalTileSources;
             if (Array.isArray(art.folder)) {
+                let currentAccumulatedX = 0;
                 finalTileSources = art.folder.map(function(item) {
-                    return {
+                    let config = {
                         tileSource: item.tileSource,
-                        x: item.x / art.width,        
-                        y: item.y / art.width,
-                        width: item.width / art.width 
+                        x: currentAccumulatedX / art.width,     // 使用累加坐标
+                        y: 0,
+                        width: item.width / art.width
                     };
+                    currentAccumulatedX += item.width;          // 为下一张图准备 X 坐标！
+                    return config;
                 });
             } else {
                 finalTileSources = { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder };
@@ -183,53 +190,54 @@
                 document.getElementById('art-selector').value = index;
 
                 applyInitialLayout();
-
-                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
-
                 startAnimationLoop();
             });
         }
 
-        // ==========================================
-        // 【核心布局升级】：锁死底线，确保超高画卷不爆屏
-        // ==========================================
+        // ========================================================
+        // 【终极数学修复】：彻底消除渲染延迟带来的坐标错乱！
+        // ========================================================
         function applyInitialLayout() {
             let art = artworks[currentArtIndex];
+            let container = viewer.viewport.getContainerSize();
             let dpr = window.devicePixelRatio || 1;
+
+            // 1. 纯数学计算完美原生比例
+            let nativeZoom = (art.width / dpr) / container.x;
             
-            // 原生 1:1 硬核缩放公式
-            let screenPhysicalWidth = viewer.viewport.getContainerSize().x * dpr;
-            let nativeZoom = art.width / screenPhysicalWidth; 
-            
-            viewer.viewport.fitVertically(true);
-            let fitZoom = viewer.viewport.getZoom(true);
-            
+            // 2. 纯数学计算上下填满的比例
+            let imgRatio = art.height / art.width; 
+            let fitZoom = (container.y / container.x) / imgRatio;
+
+            // 3. 执行缩放
             let finalZoom = Math.min(nativeZoom, fitZoom);
             viewer.viewport.zoomTo(finalZoom, null, true);
 
-            // 【⚠️关键升级】：重新定义的沉底案台算法
-            let imgBounds = viewer.world.getHomeBounds();
-            let vpHeightWorld = viewer.viewport.getBounds().height; // 当前视野的高度比
-
-            // 设定底边距离屏幕顶端的逻辑高度 = 视野总高 - 安全间距
-            let gapWorld = (115 / window.innerHeight) * vpHeightWorld; 
-            centerY = imgBounds.y + vpHeightWorld - gapWorld; 
+            // 4. 彻底抛弃读取引擎视口，直接用公式算出缩放后的逻辑高度！(杜绝黑屏起飞的元凶)
+            let targetVpHeight = (container.y / container.x) / finalZoom;
             
-            let vpWidth = viewer.viewport.getBounds().width;
-            let startX = 1.0 - (vpWidth / 2); 
+            // 5. 计算底部留白
+            let cbHeight = document.getElementById('control-bar').offsetHeight;
+            let bottomGapPx = cbHeight + 15; 
+            let gapWorld = (bottomGapPx / window.innerHeight) * targetVpHeight;
+
+            // 6. 精准计算沉底坐标
+            if (targetVpHeight > imgRatio) {
+                centerY = imgRatio + gapWorld - (targetVpHeight / 2);
+            } else {
+                centerY = imgRatio / 2;
+            }
+            
+            // 7. 直接定位到最右侧引首
+            let targetVpWidth = 1.0 / finalZoom;
+            let startX = 1.0 - (targetVpWidth / 2); 
+            
             viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
         }
 
         function handleSmartResize() {
             if (!viewer || !viewer.viewport) return;
-            
-            // 调整大小时重新锚定底线
-            let vpHeightWorld = viewer.viewport.getBounds().height;
-            let gapWorld = (115 / window.innerHeight) * vpHeightWorld;
-            centerY = viewer.world.getHomeBounds().y + vpHeightWorld - gapWorld;
-
-            let currentX = viewer.viewport.getCenter().x;
-            viewer.viewport.panTo(new OpenSeadragon.Point(currentX, centerY), true);
+            applyInitialLayout(); // 窗口尺寸改变时，直接复用无敌的数学公式重算！
         }
 
         function zoomNavi(delta) {
