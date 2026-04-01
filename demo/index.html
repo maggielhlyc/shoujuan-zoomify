@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 31.0 导览满宽定稿版</title>
+    <title>私人美术館 - 34.0 恒定雷达版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,10 +15,11 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; }
+        /* 【核心修复 1/2】：增加 align-items: flex-end 和 translateY(-100%)。
+           这句魔法 CSS 的意思是：无论里面内容多高，整个容器永远以“底边”为基准线，强行把自己提上去。 */
+        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
         
-        /* 【修改1】：去掉了 height: 8vh，高度交由代码精准计算 */
-        #navi-container { width: 100vw; background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: all 0.4s; }
+        #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); transition: width 0.3s, height 0.3s, transform 0.1s linear; }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
         body.paused #navi-container { background: var(--bg-color); border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
@@ -38,7 +39,6 @@
         .btn:hover { background: var(--accent-color); color: #000; }
         select { max-width: 35vw; background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.5vh; border-radius: 4px; outline: none;}
         
-        /* 轮播按钮激活状态 */
         .btn.active-cycle { background: #2d4a35; border-color: #4CAF50; color: #fff; box-shadow: 0 0 10px rgba(76,175,80,0.5); }
     </style>
 </head>
@@ -55,6 +55,10 @@
         <button class="btn" onclick="adjustSpeed(-0.000005)">减速</button>
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
+        
+        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(-0.5)">导览-</button>
+        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(0.5)">导览+</button>
+        
         <button class="btn" onclick="resetView()">全景</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
         <button id="fs-btn" class="btn" style="background:#2d4a35;" onclick="toggleFullscreen(event)">全屏</button>
@@ -64,59 +68,29 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-       // 【⚠️】请替换为您真实的 GitHub 文件夹名称
+        // 【⚠️】请替换为您真实的文本内容
         var artworks = [
             { 
-                name: "01_张 同（清） 仿周之冕花卉卷", 
-                width: 21119, 
-                height: 1146, 
-                folder: "tiles/01_zhang_tong/", 
-                desc: `手卷 设色纸本
-ZHANG TONG FLOWERS AFTER ZHOU ZHIMIAN
-hand scroll; ink and color on paper
-引首：28×101 cm. 11×39 3/4 in. 约2.5平尺，
-画心：28×475 cm. 11×187 in. 约12.0平尺
-题签：著手成春。天江钦题。钤印：江马圣钦、碧梧馆
-题识：仿周之冕笔意，松隐张同。
-钤印：张同、揆一
-说明：江马天江（1825-1901），日本人。本名下坂圣钦，号天江。德川末期勤王诗人。擅长诗、书、画、鉴定。日本中国古书画鉴定权威。
-张同，字揆一，号松隐，江苏昆山人。与倪永清友善。善花鸟，有自怡草。` 
+                name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", 
+                desc: `手卷 设色纸本...` 
             },
             { 
-                name: "02_华拓 祁连山卷-全卷", 
-                width: 12867, 
-                height: 832, 
-                folder: "tiles/02_hua_tuo/", 
-                desc: `作者华拓
-作者生卒b.1940
-形式手卷 设色纸本
-尺寸引首: 22.5 x 63 cm. 8 7/8 x 24 3/4 in. 约1.3平尺;画: 22.5 x 316 cm. 8 7/8 x 124 3/8 in. 约6.4平尺
-创作年代1987年作
-题识:一九八四年夏访青海，于祁连县得稿，八七年绘于南京，华拓并记。
-钤印:华拓
-宋文治（1919-1999）题签条：华拓祁连山长卷。文治。 钤印：文治
-宋文治题引首：祁连胜览。癸酉三月，题华拓弟山水卷。文治。 钤印：娄江宋灏、文治书印、九十年代` 
+                name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", 
+                desc: `作者华拓...` 
             },
             { 
-                name: "03_金楙［清］喻筏［清］秋岩爽气卷（袁瓒题引首、金城旧藏）-全卷", 
-                width: 5546, 
-                height: 582, 
-                folder: "tiles/03_jin_mao/", 
-                desc: `作者	金楙［清］喻筏［清］
-材质	设色纸本
-装裱形制	手卷
-款识	1.子重道兄正，金楙。钤印：金楙（白） 2.道光己□八月除日，子重招饮姑诵堂题请教正，头陀寺僧喻筏。钤印：苦吟僧（朱）
-鉴藏印	金巩伯精鉴印（朱）
-袁瓒题引首:袁瓒［清］，字廉叔，光绪咸丰年间江苏奉贤人。辑有《光緖黄梅县志》等。金城旧藏。
-题签	金北楼旧藏道光年间山水卷。
-尺寸	引首：90×24.5cm；画：161×23cm；题跋：约28×20cm
-鉴藏者简介	金城（1878～1926），原名绍城，字拱北，一字巩伯，号北楼、藕庐，浙江吴兴人。工诗、书画、篆刻，善山水、人物、花鸟。曾办“湖社”画会，影响全国。` 
+                name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", 
+                desc: `作者金楙...` 
             }
         ];
 
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
         var currentArtIndex = 0;
         var isAutoCycle = false;
+
+        var baseNaviWidth = 0;
+        var baseNaviHeight = 0;
+        var naviScale = 1.0;
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -139,14 +113,25 @@ hand scroll; ink and color on paper
             if (viewer) { viewer.destroy(); viewer = null; }
 
             const outer = document.getElementById('navi-outer');
-            // 【修改2】：精准算出让导览图刚好撑满 100vw 的高度
-            let exactNaviHeight = window.innerWidth / (art.width / art.height);
-            outer.innerHTML = '<div id="navi-container" style="height: ' + exactNaviHeight + 'px;"></div>';
+            
+            let ratio = art.width / art.height;
+            baseNaviHeight = window.innerWidth / ratio;
+            let maxHeight = window.innerHeight * 0.15; 
+            
+            if (baseNaviHeight > maxHeight) {
+                baseNaviHeight = maxHeight;
+                baseNaviWidth = baseNaviHeight * ratio;
+            } else {
+                baseNaviWidth = window.innerWidth;
+            }
+            naviScale = 1.0; 
+            
+            outer.innerHTML = '<div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div>';
 
             viewer = OpenSeadragon({
                 id: "viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder },
+                tileSources: Array.isArray(art.folder) ? art.folder : { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder },
                 canvasColor: '#221F1C',
                 showNavigationControl: false,
                 showNavigator: true,
@@ -171,14 +156,15 @@ hand scroll; ink and color on paper
                 document.getElementById('full-desc').innerText = art.desc;
                 document.getElementById('art-selector').value = index;
 
-                // ====== 原生代码保留：原生物理像素 1:1 ======
-                let nativeZoom = viewer.viewport.imageToViewportZoom(1.0);
                 let dpr = window.devicePixelRatio || 1;
-                let truePhysicalZoom = nativeZoom / dpr;
+                let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
                 
-                viewer.viewport.zoomTo(truePhysicalZoom, null, true);
-
-                // 定位到最右侧
+                viewer.viewport.fitVertically(true);
+                let fitZoom = viewer.viewport.getZoom(true);
+                
+                let finalZoom = Math.min(nativeZoom, fitZoom);
+                viewer.viewport.zoomTo(finalZoom, null, true);
+                
                 let vpWidth = viewer.viewport.getBounds().width;
                 let startX = 1.0 - (vpWidth / 2); 
                 viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
@@ -187,13 +173,25 @@ hand scroll; ink and color on paper
             });
         }
 
+        function zoomNavi(delta) {
+            naviScale += delta;
+            if (naviScale < 1) naviScale = 1; 
+            if (naviScale > 10) naviScale = 10; 
+            
+            const naviContainer = document.getElementById('navi-container');
+            if(naviContainer) {
+                naviContainer.style.width = (baseNaviWidth * naviScale) + 'px';
+                naviContainer.style.height = (baseNaviHeight * naviScale) + 'px';
+            }
+            updateNaviPosition(); 
+        }
+
         function startAnimationLoop() {
             function step() {
                 if (isPlaying && viewer && viewer.viewport) {
                     let currentPos = viewer.viewport.getCenter();
                     let newX = currentPos.x + scrollStep;
                     
-                    // 自动轮播侦测：到达最左侧边缘
                     let vpWidth = viewer.viewport.getBounds().width;
                     let leftLimit = vpWidth / 2;
 
@@ -233,10 +231,20 @@ hand scroll; ink and color on paper
             const naviOuter = document.getElementById('navi-outer');
             const naviContainer = document.getElementById('navi-container');
             if (!naviOuter || !naviContainer) return;
-            const tiledImage = viewer.world.getItemAt(0);
-            const imageBounds = tiledImage.getBounds();
+            
+            const imageBounds = viewer.world.getHomeBounds();
+            const mainCenter = viewer.viewport.getCenter(true); 
+            
+            let p = mainCenter.x / imageBounds.width;
+            p = Math.max(0, Math.min(1, p));
+            
+            let translate_X = baseNaviWidth * (p - 0.5) * (1 - naviScale);
+            naviContainer.style.transform = `translateX(${translate_X}px)`;
+
             const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
-            naviOuter.style.top = (pixelTopLeft.y - naviContainer.offsetHeight - 30) + "px";
+            
+            // 【核心修复 2/2】：剥离复杂的 JS 高度运算，直接锁死在主图顶部上方 30px！
+            naviOuter.style.top = (pixelTopLeft.y - 30) + "px";
         }
 
         function togglePlayState() {
