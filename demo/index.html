@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 38.0 沉底案台定稿版</title>
+    <title>私人美术館 - 39.0 自由探索定稿版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,7 +15,6 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        /* 导览图外层：逆向生长布局 */
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
         #navi-mover { transition: transform 0.1s linear; }
         #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); }
@@ -66,22 +65,22 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】请填入真实的画作数据，注意保留反引号和逗号
+        // 【⚠️】别忘了粘贴您的真实文字和逗号！
         var artworks = [
             { 
                 name: "01_张 同（清） 仿周之冕花卉卷", 
                 width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", 
-                desc: `第一幅文字` 
+                desc: `文字一` 
             },
             { 
                 name: "02_华拓 祁连山卷-全卷", 
                 width: 12867, height: 832, folder: "tiles/02_hua_tuo/", 
-                desc: `第二幅文字` 
+                desc: `文字二` 
             },
             { 
                 name: "03_金楙 秋岩爽气卷", 
                 width: 5546, height: 582, folder: "tiles/03_jin_mao/", 
-                desc: `第三幅文字` 
+                desc: `文字三` 
             }
         ];
 
@@ -156,42 +155,41 @@
                 document.getElementById('full-desc').innerText = art.desc;
                 document.getElementById('art-selector').value = index;
 
-                let dpr = window.devicePixelRatio || 1;
-                let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
-                
-                viewer.viewport.fitVertically(true);
-                let fitZoom = viewer.viewport.getZoom(true);
-                
-                let finalZoom = Math.min(nativeZoom, fitZoom);
-                viewer.viewport.zoomTo(finalZoom, null, true);
-
-                // ==========================================
-                // 【核心革新】：主图沉底布局引擎
-                // ==========================================
-                let imgRatio = art.height / art.width; // 图像的高度比例
-                let vpHeight = viewer.viewport.getBounds().height; // 当前屏幕视野的高度比例
-                
-                // 设定主图底边距离屏幕底部的间距（100像素，保留呼吸感）
-                let bottomGapPx = 100; 
-                let gapWorld = (bottomGapPx / window.innerHeight) * vpHeight;
-
-                if (vpHeight > imgRatio) {
-                    // 如果屏幕比画卷高（有黑边），则执行沉底锚定
-                    centerY = imgRatio + gapWorld - (vpHeight / 2);
-                } else {
-                    // 如果画卷极高（如7595px那幅），则保持原有的完美居中
-                    centerY = imgRatio / 2;
-                }
-                // ==========================================
-                
-                let vpWidth = viewer.viewport.getBounds().width;
-                let startX = 1.0 - (vpWidth / 2); 
-                viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
+                applyInitialLayout();
 
                 setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
 
                 startAnimationLoop();
             });
+        }
+
+        // 把计算沉底布局的逻辑提取出来，方便“全景”按钮复用
+        function applyInitialLayout() {
+            let art = artworks[currentArtIndex];
+            let dpr = window.devicePixelRatio || 1;
+            let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
+            
+            viewer.viewport.fitVertically(true);
+            let fitZoom = viewer.viewport.getZoom(true);
+            
+            let finalZoom = Math.min(nativeZoom, fitZoom);
+            viewer.viewport.zoomTo(finalZoom, null, true);
+
+            let imgRatio = art.height / art.width; 
+            let vpHeight = viewer.viewport.getBounds().height; 
+            
+            let bottomGapPx = 100; 
+            let gapWorld = (bottomGapPx / window.innerHeight) * vpHeight;
+
+            if (vpHeight > imgRatio) {
+                centerY = imgRatio + gapWorld - (vpHeight / 2);
+            } else {
+                centerY = imgRatio / 2;
+            }
+            
+            let vpWidth = viewer.viewport.getBounds().width;
+            let startX = 1.0 - (vpWidth / 2); 
+            viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
         }
 
         function zoomNavi(delta) {
@@ -233,8 +231,9 @@
                     }
                     if (newX > 1.1) newX = -0.1;
                     
-                    // 强制在每一帧锁死 Y 轴（centerY），主图永远沉底，无法被上下拖拽
-                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
+                    // 【核心修复】：将原本死板的 centerY 替换为 currentPos.y。
+                    // 这样，自动滚动只负责水平移动，纵向高度完全尊重您的手动缩放和拖拽！
+                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
                 }
                 updateNaviPosition();
                 animationRequest = requestAnimationFrame(step);
@@ -270,8 +269,6 @@
             naviMover.style.transform = `translateX(${translate_X}px)`;
 
             const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
-            // 导览图依然死死钉在主图上方 30px。
-            // 因为主图现在被拉到了屏幕底部，所以上方留出了巨大的空间供导览图生长！
             naviOuter.style.top = (pixelTopLeft.y - 30) + "px";
         }
 
@@ -286,7 +283,8 @@
 
         function resetView() {
             if (viewer) {
-                viewer.viewport.goHome();
+                // 【升级】：现在点击全景，会完美回到带有黑边的沉底状态，而不是死板地居中
+                applyInitialLayout();
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
             }
