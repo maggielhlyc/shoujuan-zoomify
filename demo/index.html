@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 40.0 智能防遮挡定稿版</title>
+    <title>私人美术館 - 41.0 完美拼接定稿版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -26,31 +26,13 @@
         body.paused #header-zone { top: 0; }
         #art-title { font-size: 3.2vh; color: var(--accent-color); letter-spacing: 4px; font-weight: bold; text-align: center; }
         
-        /* ==========================================
-           【核心 CSS 升级】：全自动高度自适应控制栏
-           ========================================== */
         #control-bar { 
-            position: absolute; 
-            bottom: 0; /* 死死贴住屏幕底边 */
-            left: 0; 
-            width: 100%; 
-            height: auto; /* 放弃固定高度，让按钮行数自动撑开 */
-            min-height: 80px;
-            padding: 20px 20px 30px 20px; /* 底部预留安全距离 */
-            display: flex; 
-            flex-wrap: wrap; 
-            align-items: center; 
-            justify-content: center; 
-            gap: 12px; 
+            position: absolute; bottom: 0; left: 0; width: 100%; height: auto; min-height: 80px;
+            padding: 20px 20px 30px 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; 
             background: linear-gradient(to top, rgba(15,10,5,0.98) 40%, rgba(15,10,5,0.7) 80%, transparent); 
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.4s ease; 
-            z-index: 110; 
-            /* 播放状态时，向下移动 100% 自己的高度完美隐藏 */
-            transform: translateY(100%); 
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.4s ease; z-index: 110; transform: translateY(100%); 
         }
-        /* 暂停时，瞬间平滑弹回原位 */
         body.paused #control-bar { transform: translateY(0); }
-        
         body.show-details #control-bar { bottom: 40vh; transform: translateY(0); background: transparent; }
         
         #details-panel { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 100%); width: 90%; height: 40vh; background: var(--panel-bg); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 40px; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 105; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.2vh; box-shadow: 0 -15px 40px rgba(0,0,0,0.7); }
@@ -66,7 +48,6 @@
 
     <div id="viewer"></div>
     <div id="navi-outer"></div> 
-    
     <div id="header-zone"><div id="art-title">加载中...</div></div>
     
     <div id="control-bar">
@@ -88,7 +69,7 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】请务必保留反引号与逗号，粘贴您的真实介绍！
+        // 【⚠️】在这里粘贴您所有的画作（包括那 10 段清明上河图，像素数字完全不用改！）
         var artworks = [
             { 
                 name: "01_张 同（清） 仿周之冕花卉卷", 
@@ -111,29 +92,20 @@
                 height: 7595, 
                 desc: `这是由10段独立扫描件在代码中无缝拼接而成的超长手卷。`,
                 folder: [
-                    // 从最左侧开始（X=0），一路向右拼接
-                    { tileSource: { type: 'zoomifytileservice', width: 43276, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_a/" }, x: 0, y: 0, width: 43276 },
-                    
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_b/" }, x: 43276, y: 0, width: 50000 },
-                    
-                    { tileSource: { type: 'zoomifytileservice', width: 38778, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_c/" }, x: 93276, y: 0, width: 38778 },
-                    
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_d/" }, x: 132054, y: 0, width: 50000 },
-                    
-                    { tileSource: { type: 'zoomifytileservice', width: 2863, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_e/" }, x: 182054, y: 0, width: 2863 },
-                    
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_f/" }, x: 184917, y: 0, width: 50000 },
-                    
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_g/" }, x: 234917, y: 0, width: 50000 },
-                    
-                    { tileSource: { type: 'zoomifytileservice', width: 10492, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_h/" }, x: 284917, y: 0, width: 10492 },
-                    
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_i/" }, x: 295409, y: 0, width: 50000 },
-                    
-                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_j/" }, x: 345409, y: 0, width: 50000 }
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_j/" }, x: 0, y: 0, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_i/" }, x: 50000, y: 0, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 10492, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_h/" }, x: 100000, y: 0, width: 10492 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_g/" }, x: 110492, y: 0, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_f/" }, x: 160492, y: 0, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 2863, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_e/" }, x: 210492, y: 0, width: 2863 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_d/" }, x: 213355, y: 0, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 38778, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_c/" }, x: 263355, y: 0, width: 38778 },
+                    { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_b/" }, x: 302133, y: 0, width: 50000 },
+                    { tileSource: { type: 'zoomifytileservice', width: 43276, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_a/" }, x: 352133, y: 0, width: 43276 }
                 ]
             }
-         ]; 
+        ];
+
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
         var currentArtIndex = 0;
         var isAutoCycle = false;
@@ -152,8 +124,6 @@
                 selector.appendChild(opt);
             });
             loadArt(0);
-            
-            // 全局监听屏幕翻转或调整大小，动态重算高度
             window.addEventListener('resize', handleSmartResize);
         }
 
@@ -180,10 +150,28 @@
             
             outer.innerHTML = '<div id="navi-mover"><div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div></div>';
 
+            // ========================================================
+            // 【终极解法】：多图坐标系自动换算引擎
+            // 自动把您输入的真实像素 (如 50000)，除以画卷总宽度，转换为引擎专属的逻辑比例坐标
+            // ========================================================
+            let finalTileSources;
+            if (Array.isArray(art.folder)) {
+                finalTileSources = art.folder.map(function(item) {
+                    return {
+                        tileSource: item.tileSource,
+                        x: item.x / art.width,        // 像素 x 除以 总像素宽度
+                        y: item.y / art.width,
+                        width: item.width / art.width // 像素宽 除以 总像素宽度
+                    };
+                });
+            } else {
+                finalTileSources = { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder };
+            }
+
             viewer = OpenSeadragon({
                 id: "viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: Array.isArray(art.folder) ? art.folder : { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder },
+                tileSources: finalTileSources, // 注入换算后的完美坐标
                 canvasColor: '#221F1C',
                 showNavigationControl: false,
                 showNavigator: true,
@@ -216,13 +204,13 @@
             });
         }
 
-        // ==========================================
-        // 【核心 JS 升级】：智能动态测距算法
-        // ==========================================
         function applyInitialLayout() {
             let art = artworks[currentArtIndex];
             let dpr = window.devicePixelRatio || 1;
-            let nativeZoom = viewer.viewport.imageToViewportZoom(1.0) / dpr;
+            
+            // 【兼容修复】：升级原生 1:1 缩放公式，不再依赖首张碎图，直接用屏幕像素硬算
+            let screenPhysicalWidth = viewer.viewport.getContainerSize().x * dpr;
+            let nativeZoom = art.width / screenPhysicalWidth; 
             
             viewer.viewport.fitVertically(true);
             let fitZoom = viewer.viewport.getZoom(true);
@@ -233,15 +221,11 @@
             let imgRatio = art.height / art.width; 
             let vpHeight = viewer.viewport.getBounds().height; 
             
-            // 1. 动态获取控制栏在当前屏幕下（无论几行）的真实物理高度
             let cbHeight = document.getElementById('control-bar').offsetHeight;
-            
-            // 2. 真实高度 + 15像素的呼吸留白，作为绝对安全距离
             let bottomGapPx = cbHeight + 15; 
             let gapWorld = (bottomGapPx / window.innerHeight) * vpHeight;
 
             if (vpHeight > imgRatio) {
-                // 将画卷精准停靠在控制栏正上方
                 centerY = imgRatio + gapWorld - (vpHeight / 2);
             } else {
                 centerY = imgRatio / 2;
@@ -252,7 +236,6 @@
             viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
         }
 
-        // 监听屏幕翻转，实时保护画卷不被遮挡
         function handleSmartResize() {
             if (!viewer || !viewer.viewport) return;
             
@@ -270,7 +253,6 @@
                 centerY = imgRatio / 2;
             }
 
-            // 只调整高度（防遮挡），不改变用户当前观看的水平进度
             let currentX = viewer.viewport.getCenter().x;
             viewer.viewport.panTo(new OpenSeadragon.Point(currentX, centerY), true);
         }
