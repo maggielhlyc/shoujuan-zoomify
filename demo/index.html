@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 37.0 绝对锁定定稿版</title>
+    <title>私人美术館 - 38.0 沉底案台定稿版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,13 +15,9 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        /* 外层：控制恒定的 30px 高度逆向生长 */
+        /* 导览图外层：逆向生长布局 */
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
-        
-        /* 【重构1】：新增的 mover 层，专门用来负责雷达左右滑动，隔离 CSS 污染 */
         #navi-mover { transition: transform 0.1s linear; }
-        
-        /* 内层：绝对纯净的引擎盒子，只负责尺寸，不带任何移动动画 */
         #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
@@ -70,28 +66,22 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】特别提醒：请在下方填入真实的画作介绍，注意保留所有反引号和逗号！
+        // 【⚠️】请填入真实的画作数据，注意保留反引号和逗号
         var artworks = [
             { 
                 name: "01_张 同（清） 仿周之冕花卉卷", 
-                width: 21119, 
-                height: 1146, 
-                folder: "tiles/01_zhang_tong/", 
-                desc: `在此粘贴第一幅画的介绍文字` 
+                width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", 
+                desc: `第一幅文字` 
             },
             { 
                 name: "02_华拓 祁连山卷-全卷", 
-                width: 12867, 
-                height: 832, 
-                folder: "tiles/02_hua_tuo/", 
-                desc: `在此粘贴第二幅画的介绍文字` 
+                width: 12867, height: 832, folder: "tiles/02_hua_tuo/", 
+                desc: `第二幅文字` 
             },
             { 
                 name: "03_金楙 秋岩爽气卷", 
-                width: 5546, 
-                height: 582, 
-                folder: "tiles/03_jin_mao/", 
-                desc: `在此粘贴第三幅画的介绍文字` 
+                width: 5546, height: 582, folder: "tiles/03_jin_mao/", 
+                desc: `第三幅文字` 
             }
         ];
 
@@ -118,7 +108,6 @@
         function loadArt(index) {
             currentArtIndex = index;
             let art = artworks[index];
-            centerY = (art.height / art.width) / 2;
             
             if (animationRequest) cancelAnimationFrame(animationRequest);
             if (viewer) { viewer.destroy(); viewer = null; }
@@ -137,7 +126,6 @@
             }
             naviScale = 1.0; 
             
-            // 【重构2】：初始化时，注入双层壳子（mover包着container）
             outer.innerHTML = '<div id="navi-mover"><div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div></div>';
 
             viewer = OpenSeadragon({
@@ -176,10 +164,31 @@
                 
                 let finalZoom = Math.min(nativeZoom, fitZoom);
                 viewer.viewport.zoomTo(finalZoom, null, true);
+
+                // ==========================================
+                // 【核心革新】：主图沉底布局引擎
+                // ==========================================
+                let imgRatio = art.height / art.width; // 图像的高度比例
+                let vpHeight = viewer.viewport.getBounds().height; // 当前屏幕视野的高度比例
+                
+                // 设定主图底边距离屏幕底部的间距（100像素，保留呼吸感）
+                let bottomGapPx = 100; 
+                let gapWorld = (bottomGapPx / window.innerHeight) * vpHeight;
+
+                if (vpHeight > imgRatio) {
+                    // 如果屏幕比画卷高（有黑边），则执行沉底锚定
+                    centerY = imgRatio + gapWorld - (vpHeight / 2);
+                } else {
+                    // 如果画卷极高（如7595px那幅），则保持原有的完美居中
+                    centerY = imgRatio / 2;
+                }
+                // ==========================================
                 
                 let vpWidth = viewer.viewport.getBounds().width;
                 let startX = 1.0 - (vpWidth / 2); 
                 viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
+
+                setTimeout(() => { window.dispatchEvent(new Event('resize')); }, 100);
 
                 startAnimationLoop();
             });
@@ -196,7 +205,6 @@
                 naviContainer.style.height = (baseNaviHeight * naviScale) + 'px';
             }
             
-            // 【重构3：黄金修复】：不仅更新尺寸，并且强制导览图引擎在新的尺寸下瞬间“回正对齐”
             if (viewer && viewer.navigator) {
                 viewer.navigator.updateSize();
                 viewer.navigator.viewport.goHome(true); 
@@ -225,6 +233,7 @@
                     }
                     if (newX > 1.1) newX = -0.1;
                     
+                    // 强制在每一帧锁死 Y 轴（centerY），主图永远沉底，无法被上下拖拽
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, centerY), true);
                 }
                 updateNaviPosition();
@@ -248,8 +257,6 @@
         function updateNaviPosition() {
             if (!viewer || !viewer.viewport || viewer.world.getItemCount() === 0) return;
             const naviOuter = document.getElementById('navi-outer');
-            
-            // 【重构4】：把所有的左右滑动，全部交给 mover 壳子，保护 container 不受污染
             const naviMover = document.getElementById('navi-mover');
             if (!naviOuter || !naviMover) return;
             
@@ -263,6 +270,8 @@
             naviMover.style.transform = `translateX(${translate_X}px)`;
 
             const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
+            // 导览图依然死死钉在主图上方 30px。
+            // 因为主图现在被拉到了屏幕底部，所以上方留出了巨大的空间供导览图生长！
             naviOuter.style.top = (pixelTopLeft.y - 30) + "px";
         }
 
