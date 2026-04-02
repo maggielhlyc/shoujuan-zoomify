@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 42.0 终极排版定稿版</title>
+    <title>私人美术館 - 43.0 极致丝滑版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -16,8 +16,17 @@
         body.paused { cursor: default; }
 
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
-        #navi-mover { transition: transform 0.1s linear; }
-        #navi-container { background: var(--bg-color); border-top: 1px solid rgba(212, 160, 23, 0.2); border-bottom: 1px solid rgba(212, 160, 23, 0.2); }
+        
+        /* 移除默认的 CSS 动画，全权交由核心 JS 控制以确保丝滑 */
+        #navi-mover { }
+        
+        /* 确保放大时是以底部中心点向上扩张 */
+        #navi-container { 
+            background: var(--bg-color); 
+            border-top: 1px solid rgba(212, 160, 23, 0.2); 
+            border-bottom: 1px solid rgba(212, 160, 23, 0.2); 
+            transform-origin: bottom center; 
+        }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
         body.paused #navi-container { border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
@@ -56,8 +65,10 @@
         <button class="btn" onclick="adjustSpeed(-0.000005)">减速</button>
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
+        
         <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(-0.1)">导览-</button>
         <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(0.1)">导览+</button>
+        
         <button class="btn" onclick="resetView()">全景</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
         <button id="fs-btn" class="btn" style="background:#2d4a35;" onclick="toggleFullscreen(event)">全屏</button>
@@ -99,13 +110,18 @@
 
         ];
 
+
         var viewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
         var currentArtIndex = 0;
         var isAutoCycle = false;
 
         var baseNaviWidth = 0;
         var baseNaviHeight = 0;
-        var naviScale = 1.0;
+        
+        // 【核心状态分离】：区分“目标缩放(瞬间视觉)”与“物理缩放(滞后渲染)”
+        var targetNaviScale = 1.0;  
+        var physicalNaviScale = 1.0;
+        var bakeNaviTimeout = null;
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -127,6 +143,10 @@
             if (animationRequest) cancelAnimationFrame(animationRequest);
             if (viewer) { viewer.destroy(); viewer = null; }
 
+            // 每次加载新画，重置缩放状态
+            targetNaviScale = 1.0;
+            physicalNaviScale = 1.0;
+
             const outer = document.getElementById('navi-outer');
             
             let ratio = art.width / art.height;
@@ -139,25 +159,20 @@
             } else {
                 baseNaviWidth = window.innerWidth;
             }
-            naviScale = 1.0; 
             
             outer.innerHTML = '<div id="navi-mover"><div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div></div>';
 
-            // ========================================================
-            // 【革命性解法】：坐标自动累加计算器。
-            // 自动按照您提供的数组顺序，把每一块严丝合缝地从左向右贴好！
-            // ========================================================
             let finalTileSources;
             if (Array.isArray(art.folder)) {
                 let currentAccumulatedX = 0;
                 finalTileSources = art.folder.map(function(item) {
                     let config = {
                         tileSource: item.tileSource,
-                        x: currentAccumulatedX / art.width,     // 使用累加坐标
+                        x: currentAccumulatedX / art.width,     
                         y: 0,
                         width: item.width / art.width
                     };
-                    currentAccumulatedX += item.width;          // 为下一张图准备 X 坐标！
+                    currentAccumulatedX += item.width;          
                     return config;
                 });
             } else {
@@ -197,41 +212,29 @@
             });
         }
 
-        // ========================================================
-        // 【终极数学修复】：彻底消除渲染延迟带来的坐标错乱！
-        // ========================================================
         function applyInitialLayout() {
             let art = artworks[currentArtIndex];
             let container = viewer.viewport.getContainerSize();
             let dpr = window.devicePixelRatio || 1;
 
-            // 1. 纯数学计算完美原生比例
             let nativeZoom = (art.width / dpr) / container.x;
-            
-            // 2. 纯数学计算上下填满的比例
             let imgRatio = art.height / art.width; 
             let fitZoom = (container.y / container.x) / imgRatio;
 
-            // 3. 执行缩放
             let finalZoom = Math.min(nativeZoom, fitZoom);
             viewer.viewport.zoomTo(finalZoom, null, true);
 
-            // 4. 彻底抛弃读取引擎视口，直接用公式算出缩放后的逻辑高度！(杜绝黑屏起飞的元凶)
             let targetVpHeight = (container.y / container.x) / finalZoom;
-            
-            // 5. 计算底部留白
             let cbHeight = document.getElementById('control-bar').offsetHeight;
             let bottomGapPx = cbHeight + 15; 
             let gapWorld = (bottomGapPx / window.innerHeight) * targetVpHeight;
 
-            // 6. 精准计算沉底坐标
             if (targetVpHeight > imgRatio) {
                 centerY = imgRatio + gapWorld - (targetVpHeight / 2);
             } else {
                 centerY = imgRatio / 2;
             }
             
-            // 7. 直接定位到最右侧引首
             let targetVpWidth = 1.0 / finalZoom;
             let startX = 1.0 - (targetVpWidth / 2); 
             
@@ -240,26 +243,52 @@
 
         function handleSmartResize() {
             if (!viewer || !viewer.viewport) return;
-            applyInitialLayout(); // 窗口尺寸改变时，直接复用无敌的数学公式重算！
+            applyInitialLayout(); 
         }
 
+        // ========================================================
+        // 【终极性能优化】：防抖、GPU加速与高保真切换引擎
+        // ========================================================
         function zoomNavi(delta) {
-            naviScale += delta;
-            if (naviScale < 1) naviScale = 1; 
-            if (naviScale > 10) naviScale = 10; 
-            
+            targetNaviScale += delta;
+            if (targetNaviScale < 1) targetNaviScale = 1; 
+            if (targetNaviScale > 10) targetNaviScale = 10; 
+
             const naviContainer = document.getElementById('navi-container');
-            if(naviContainer) {
-                naviContainer.style.width = (baseNaviWidth * naviScale) + 'px';
-                naviContainer.style.height = (baseNaviHeight * naviScale) + 'px';
-            }
-            
-            if (viewer && viewer.navigator) {
-                viewer.navigator.updateSize();
-                viewer.navigator.viewport.goHome(true); 
-            }
-            
+            const naviMover = document.getElementById('navi-mover');
+            if(!naviContainer || !naviMover) return;
+
+            // 1. 注入顶级顺滑的 CSS 动画（仅在缩放时启用）
+            naviContainer.style.transition = "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)";
+            naviMover.style.transition = "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)";
+
+            // 2. 绕开引擎，直接让显卡 GPU 对容器进行视觉拉伸
+            let visualScale = targetNaviScale / physicalNaviScale;
+            naviContainer.style.transform = `scale(${visualScale})`;
+
+            // 3. 伴随平滑过渡的红框追踪
             updateNaviPosition(); 
+
+            // 4. 防抖：用户停顿 350 毫秒后，再让引擎做苦力活（烘焙物理像素）
+            clearTimeout(bakeNaviTimeout);
+            bakeNaviTimeout = setTimeout(() => {
+                physicalNaviScale = targetNaviScale;
+
+                // 移除动画，让底层物理更新在瞬间无缝完成
+                naviContainer.style.transition = "none";
+                naviMover.style.transition = "none";
+
+                // 应用真实的物理宽度，让它加载高清细节
+                naviContainer.style.width = (baseNaviWidth * physicalNaviScale) + 'px';
+                naviContainer.style.height = (baseNaviHeight * physicalNaviScale) + 'px';
+                naviContainer.style.transform = `scale(1)`; // 抵消之前的视觉放大
+
+                // 这次才是真正刷新引擎
+                if (viewer && viewer.navigator) {
+                    viewer.navigator.updateSize();
+                    viewer.navigator.viewport.goHome(true); 
+                }
+            }, 350); 
         }
 
         function startAnimationLoop() {
@@ -314,7 +343,8 @@
             let p = mainCenter.x / imageBounds.width;
             p = Math.max(0, Math.min(1, p));
             
-            let translate_X = baseNaviWidth * (p - 0.5) * (1 - naviScale);
+            // 使用 targetNaviScale，确保雷达红框的位置与 CSS 动画完全同步！
+            let translate_X = baseNaviWidth * (p - 0.5) * (1 - targetNaviScale);
             naviMover.style.transform = `translateX(${translate_X}px)`;
 
             const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
@@ -332,6 +362,23 @@
 
         function resetView() {
             if (viewer) {
+                targetNaviScale = 1.0;
+                physicalNaviScale = 1.0;
+                const naviContainer = document.getElementById('navi-container');
+                const naviMover = document.getElementById('navi-mover');
+                
+                if(naviContainer && naviMover) {
+                    naviContainer.style.transition = "none";
+                    naviMover.style.transition = "none";
+                    naviContainer.style.width = baseNaviWidth + 'px';
+                    naviContainer.style.height = baseNaviHeight + 'px';
+                    naviContainer.style.transform = `scale(1)`;
+                    if (viewer.navigator) {
+                        viewer.navigator.updateSize();
+                        viewer.navigator.viewport.goHome(true);
+                    }
+                }
+
                 applyInitialLayout();
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
