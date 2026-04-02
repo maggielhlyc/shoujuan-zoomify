@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 43.0 极致丝滑版</title>
+    <title>私人美术館 - 45.0 双轨丝滑滚轮版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -17,15 +17,16 @@
 
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
         
-        /* 移除默认的 CSS 动画，全权交由核心 JS 控制以确保丝滑 */
-        #navi-mover { }
+        #navi-mover { will-change: transform; }
         
-        /* 确保放大时是以底部中心点向上扩张 */
+        /* 增加 cursor 提示，让用户知道鼠标放这里有特殊交互 */
         #navi-container { 
             background: var(--bg-color); 
             border-top: 1px solid rgba(212, 160, 23, 0.2); 
             border-bottom: 1px solid rgba(212, 160, 23, 0.2); 
             transform-origin: bottom center; 
+            will-change: transform; 
+            cursor: ns-resize; /* 提示可以上下滚轮缩放 */
         }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
@@ -78,7 +79,8 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        var artworks = [
+        // 【⚠️】请务必保留您自己的画作数据内容！
+       var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
             { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` },
@@ -118,7 +120,6 @@
         var baseNaviWidth = 0;
         var baseNaviHeight = 0;
         
-        // 【核心状态分离】：区分“目标缩放(瞬间视觉)”与“物理缩放(滞后渲染)”
         var targetNaviScale = 1.0;  
         var physicalNaviScale = 1.0;
         var bakeNaviTimeout = null;
@@ -134,6 +135,22 @@
             });
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
+
+            // ==========================================
+            // 【核心革新】：为导览图挂载独立的滚轮监听器
+            // ==========================================
+            const naviOuter = document.getElementById('navi-outer');
+            // 使用 capture: true 强制在底层引擎捕获前拦截事件
+            naviOuter.addEventListener('wheel', function(e) {
+                if(isPlaying) return; // 播放状态下鼠标隐藏，不允许缩放
+                
+                e.preventDefault();   // 阻止网页默认滚动
+                e.stopPropagation();  // 阻止主图引擎跟着一起缩放！
+                
+                // 根据滚轮方向决定放大还是缩小（步进 0.08，既平滑又干脆）
+                let zoomDirection = e.deltaY < 0 ? 0.08 : -0.08; 
+                zoomNavi(zoomDirection);
+            }, { passive: false, capture: true });
         }
 
         function loadArt(index) {
@@ -143,7 +160,6 @@
             if (animationRequest) cancelAnimationFrame(animationRequest);
             if (viewer) { viewer.destroy(); viewer = null; }
 
-            // 每次加载新画，重置缩放状态
             targetNaviScale = 1.0;
             physicalNaviScale = 1.0;
 
@@ -191,8 +207,12 @@
                 gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
                 visibilityRatio: 1.0, 
                 constrainDuringPan: true,
-                defaultZoomLevel: 1.0,
-                animationTime: 0,
+                
+                // ==========================================
+                // 【主图丝滑升级】：恢复原生阻尼，调细滚动步伐
+                // ==========================================
+                animationTime: 0.4,       // 恢复阻尼感，让滚轮缩放像拉皮筋一样 Q 弹
+                zoomPerScroll: 1.1,       // 将每次缩放跨度降为 10%，操控更细腻
                 blendingTime: 0.1
             });
 
@@ -246,9 +266,6 @@
             applyInitialLayout(); 
         }
 
-        // ========================================================
-        // 【终极性能优化】：防抖、GPU加速与高保真切换引擎
-        // ========================================================
         function zoomNavi(delta) {
             targetNaviScale += delta;
             if (targetNaviScale < 1) targetNaviScale = 1; 
@@ -258,37 +275,31 @@
             const naviMover = document.getElementById('navi-mover');
             if(!naviContainer || !naviMover) return;
 
-            // 1. 注入顶级顺滑的 CSS 动画（仅在缩放时启用）
-            naviContainer.style.transition = "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)";
-            naviMover.style.transition = "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)";
+            // 让滚轮每次触发的动画变得短平快，更跟手
+            naviContainer.style.transition = "transform 0.15s ease-out";
+            naviMover.style.transition = "transform 0.15s ease-out";
 
-            // 2. 绕开引擎，直接让显卡 GPU 对容器进行视觉拉伸
             let visualScale = targetNaviScale / physicalNaviScale;
             naviContainer.style.transform = `scale(${visualScale})`;
 
-            // 3. 伴随平滑过渡的红框追踪
             updateNaviPosition(); 
 
-            // 4. 防抖：用户停顿 350 毫秒后，再让引擎做苦力活（烘焙物理像素）
             clearTimeout(bakeNaviTimeout);
             bakeNaviTimeout = setTimeout(() => {
                 physicalNaviScale = targetNaviScale;
 
-                // 移除动画，让底层物理更新在瞬间无缝完成
                 naviContainer.style.transition = "none";
                 naviMover.style.transition = "none";
 
-                // 应用真实的物理宽度，让它加载高清细节
                 naviContainer.style.width = (baseNaviWidth * physicalNaviScale) + 'px';
                 naviContainer.style.height = (baseNaviHeight * physicalNaviScale) + 'px';
-                naviContainer.style.transform = `scale(1)`; // 抵消之前的视觉放大
+                naviContainer.style.transform = `scale(1)`; 
 
-                // 这次才是真正刷新引擎
                 if (viewer && viewer.navigator) {
                     viewer.navigator.updateSize();
                     viewer.navigator.viewport.goHome(true); 
                 }
-            }, 350); 
+            }, 300); 
         }
 
         function startAnimationLoop() {
@@ -343,7 +354,6 @@
             let p = mainCenter.x / imageBounds.width;
             p = Math.max(0, Math.min(1, p));
             
-            // 使用 targetNaviScale，确保雷达红框的位置与 CSS 动画完全同步！
             let translate_X = baseNaviWidth * (p - 0.5) * (1 - targetNaviScale);
             naviMover.style.transform = `translateX(${translate_X}px)`;
 
