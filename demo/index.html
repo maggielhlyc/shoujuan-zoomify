@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 45.0 双轨丝滑滚轮版</title>
+    <title>私人美术館 - 46.0 极限混合缩放版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -19,14 +19,13 @@
         
         #navi-mover { will-change: transform; }
         
-        /* 增加 cursor 提示，让用户知道鼠标放这里有特殊交互 */
         #navi-container { 
             background: var(--bg-color); 
             border-top: 1px solid rgba(212, 160, 23, 0.2); 
             border-bottom: 1px solid rgba(212, 160, 23, 0.2); 
             transform-origin: bottom center; 
             will-change: transform; 
-            cursor: ns-resize; /* 提示可以上下滚轮缩放 */
+            cursor: ns-resize; 
         }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
@@ -136,18 +135,11 @@
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
 
-            // ==========================================
-            // 【核心革新】：为导览图挂载独立的滚轮监听器
-            // ==========================================
             const naviOuter = document.getElementById('navi-outer');
-            // 使用 capture: true 强制在底层引擎捕获前拦截事件
             naviOuter.addEventListener('wheel', function(e) {
-                if(isPlaying) return; // 播放状态下鼠标隐藏，不允许缩放
-                
-                e.preventDefault();   // 阻止网页默认滚动
-                e.stopPropagation();  // 阻止主图引擎跟着一起缩放！
-                
-                // 根据滚轮方向决定放大还是缩小（步进 0.08，既平滑又干脆）
+                if(isPlaying) return; 
+                e.preventDefault();   
+                e.stopPropagation();  
                 let zoomDirection = e.deltaY < 0 ? 0.08 : -0.08; 
                 zoomNavi(zoomDirection);
             }, { passive: false, capture: true });
@@ -207,12 +199,8 @@
                 gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
                 visibilityRatio: 1.0, 
                 constrainDuringPan: true,
-                
-                // ==========================================
-                // 【主图丝滑升级】：恢复原生阻尼，调细滚动步伐
-                // ==========================================
-                animationTime: 0.4,       // 恢复阻尼感，让滚轮缩放像拉皮筋一样 Q 弹
-                zoomPerScroll: 1.1,       // 将每次缩放跨度降为 10%，操控更细腻
+                animationTime: 0.4,       
+                zoomPerScroll: 1.1,       
                 blendingTime: 0.1
             });
 
@@ -266,6 +254,9 @@
             applyInitialLayout(); 
         }
 
+        // ========================================================
+        // 【极限性能核心】：混合缩放引擎 (防卡死机制)
+        // ========================================================
         function zoomNavi(delta) {
             targetNaviScale += delta;
             if (targetNaviScale < 1) targetNaviScale = 1; 
@@ -275,7 +266,6 @@
             const naviMover = document.getElementById('navi-mover');
             if(!naviContainer || !naviMover) return;
 
-            // 让滚轮每次触发的动画变得短平快，更跟手
             naviContainer.style.transition = "transform 0.15s ease-out";
             naviMover.style.transition = "transform 0.15s ease-out";
 
@@ -286,14 +276,27 @@
 
             clearTimeout(bakeNaviTimeout);
             bakeNaviTimeout = setTimeout(() => {
-                physicalNaviScale = targetNaviScale;
+                
+                // 【核心防火墙】：无论放多大，强制计算物理画布最大安全极限 (8000像素)
+                let maxSafePhysicalScale = targetNaviScale;
+                let maxAllowedPixels = 8000; // 显卡安全阈值
+                if (baseNaviWidth * maxSafePhysicalScale > maxAllowedPixels) {
+                    maxSafePhysicalScale = maxAllowedPixels / baseNaviWidth;
+                }
+                maxSafePhysicalScale = Math.max(1, maxSafePhysicalScale); // 保证下限
+
+                physicalNaviScale = maxSafePhysicalScale;
 
                 naviContainer.style.transition = "none";
                 naviMover.style.transition = "none";
 
+                // 注入安全的物理像素
                 naviContainer.style.width = (baseNaviWidth * physicalNaviScale) + 'px';
                 naviContainer.style.height = (baseNaviHeight * physicalNaviScale) + 'px';
-                naviContainer.style.transform = `scale(1)`; 
+
+                // 剩余的放大倍率，交由 GPU 纯视觉拉伸弥补！(极其关键)
+                let remainingVisualScale = targetNaviScale / physicalNaviScale;
+                naviContainer.style.transform = `scale(${remainingVisualScale})`; 
 
                 if (viewer && viewer.navigator) {
                     viewer.navigator.updateSize();
