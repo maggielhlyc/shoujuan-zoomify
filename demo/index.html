@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 46.0 极限混合缩放版</title>
+    <title>私人美术館 - 47.0 触控增强版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,10 +15,12 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); }
+        /* 【核心修复1】：给外层也加上 touch-action，彻底防安卓劫持 */
+        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); touch-action: none; }
         
-        #navi-mover { will-change: transform; }
+        #navi-mover { will-change: transform; touch-action: none; }
         
+        /* 【核心修复1】：强制安卓浏览器放弃原生的手势处理 */
         #navi-container { 
             background: var(--bg-color); 
             border-top: 1px solid rgba(212, 160, 23, 0.2); 
@@ -26,6 +28,7 @@
             transform-origin: bottom center; 
             will-change: transform; 
             cursor: ns-resize; 
+            touch-action: none; /* 安卓防劫持终极咒语 */
         }
         
         body.paused #navi-outer { opacity: 1; pointer-events: auto; }
@@ -78,8 +81,7 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】请务必保留您自己的画作数据内容！
-       var artworks = [
+        var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
             { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` },
@@ -136,12 +138,57 @@
             window.addEventListener('resize', handleSmartResize);
 
             const naviOuter = document.getElementById('navi-outer');
+            
+            // 【1. 鼠标滚轮监听】
             naviOuter.addEventListener('wheel', function(e) {
                 if(isPlaying) return; 
                 e.preventDefault();   
                 e.stopPropagation();  
                 let zoomDirection = e.deltaY < 0 ? 0.08 : -0.08; 
                 zoomNavi(zoomDirection);
+            }, { passive: false, capture: true });
+
+            // ========================================================
+            // 【2. 核心修复：原生双指多点触控引擎】(画屏触控绝杀)
+            // ========================================================
+            let initialPinchDistance = null;
+
+            naviOuter.addEventListener('touchstart', function(e) {
+                if(isPlaying) return;
+                // 检测到两根手指放上去了
+                if(e.touches.length === 2) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // 勾股定理算两根手指的距离
+                    initialPinchDistance = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                }
+            }, { passive: false, capture: true });
+
+            naviOuter.addEventListener('touchmove', function(e) {
+                if(isPlaying) return;
+                if(e.touches.length === 2 && initialPinchDistance !== null) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    let currentDistance = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                    
+                    // 计算手指位移的差值，乘以 0.005 的灵敏度系数，转换成缩放倍率
+                    let delta = (currentDistance - initialPinchDistance) * 0.005; 
+                    zoomNavi(delta);
+                    
+                    // 重置距离，供下一帧平滑计算
+                    initialPinchDistance = currentDistance;
+                }
+            }, { passive: false, capture: true });
+
+            naviOuter.addEventListener('touchend', function(e) {
+                initialPinchDistance = null; // 手指离开，重置状态
             }, { passive: false, capture: true });
         }
 
@@ -254,9 +301,6 @@
             applyInitialLayout(); 
         }
 
-        // ========================================================
-        // 【极限性能核心】：混合缩放引擎 (防卡死机制)
-        // ========================================================
         function zoomNavi(delta) {
             targetNaviScale += delta;
             if (targetNaviScale < 1) targetNaviScale = 1; 
@@ -277,24 +321,21 @@
             clearTimeout(bakeNaviTimeout);
             bakeNaviTimeout = setTimeout(() => {
                 
-                // 【核心防火墙】：无论放多大，强制计算物理画布最大安全极限 (8000像素)
                 let maxSafePhysicalScale = targetNaviScale;
-                let maxAllowedPixels = 8000; // 显卡安全阈值
+                let maxAllowedPixels = 8000; 
                 if (baseNaviWidth * maxSafePhysicalScale > maxAllowedPixels) {
                     maxSafePhysicalScale = maxAllowedPixels / baseNaviWidth;
                 }
-                maxSafePhysicalScale = Math.max(1, maxSafePhysicalScale); // 保证下限
+                maxSafePhysicalScale = Math.max(1, maxSafePhysicalScale); 
 
                 physicalNaviScale = maxSafePhysicalScale;
 
                 naviContainer.style.transition = "none";
                 naviMover.style.transition = "none";
 
-                // 注入安全的物理像素
                 naviContainer.style.width = (baseNaviWidth * physicalNaviScale) + 'px';
                 naviContainer.style.height = (baseNaviHeight * physicalNaviScale) + 'px';
 
-                // 剩余的放大倍率，交由 GPU 纯视觉拉伸弥补！(极其关键)
                 let remainingVisualScale = targetNaviScale / physicalNaviScale;
                 naviContainer.style.transform = `scale(${remainingVisualScale})`; 
 
