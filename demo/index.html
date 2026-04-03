@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 54.0 务实分治定稿版</title>
+    <title>私人美术館 - 57.0 极速烘焙版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,7 +15,7 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); touch-action: none; }
+        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 1; transition: opacity 0.4s; transform: translateY(-100%); touch-action: none; }
         #navi-mover { will-change: transform; touch-action: none; }
         
         #navi-container { 
@@ -28,7 +28,7 @@
             touch-action: none; 
         }
         
-        body.paused #navi-outer { opacity: 1; pointer-events: auto; }
+        body.paused #navi-outer { pointer-events: auto; }
         body.paused #navi-container { border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
 
         #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; pointer-events: none; }
@@ -39,12 +39,14 @@
             position: absolute; bottom: 0; left: 0; width: 100%; height: auto; min-height: 80px;
             padding: 20px 20px 30px 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; 
             background: linear-gradient(to top, rgba(15,10,5,0.98) 40%, rgba(15,10,5,0.7) 80%, transparent); 
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.4s ease; z-index: 110; transform: translateY(100%); 
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.4s ease; 
+            z-index: 200; 
+            transform: translateY(100%); 
         }
         body.paused #control-bar { transform: translateY(0); }
         body.show-details #control-bar { bottom: 40vh; transform: translateY(0); background: transparent; }
         
-        #details-panel { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 100%); width: 90%; height: 40vh; background: var(--panel-bg); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 40px; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 105; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.2vh; box-shadow: 0 -15px 40px rgba(0,0,0,0.7); }
+        #details-panel { position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 100%); width: 90%; height: 40vh; background: var(--panel-bg); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 40px; transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 205; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 2.2vh; box-shadow: 0 -15px 40px rgba(0,0,0,0.7); }
         body.show-details #details-panel { transform: translate(-50%, 0); }
         
         .btn { padding: 1vh 1.8vh; background: rgba(70, 60, 50, 0.8); color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 4px; cursor: pointer; font-size: 1.5vh; }
@@ -78,7 +80,7 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        var artworks = [
+       var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
             { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` },
@@ -117,7 +119,6 @@
 
         var baseNaviWidth = 0;
         var baseNaviHeight = 0;
-        
         var targetNaviScale = 1.0;  
         var physicalNaviScale = 1.0;
         var bakeNaviTimeout = null;
@@ -195,14 +196,17 @@
             const outer = document.getElementById('navi-outer');
             
             let ratio = art.width / art.height;
-            baseNaviHeight = window.innerWidth / ratio;
-            let maxHeight = window.innerHeight * 0.15; 
-            
-            if (baseNaviHeight > maxHeight) {
-                baseNaviHeight = maxHeight;
-                baseNaviWidth = baseNaviHeight * ratio;
-            } else {
+            baseNaviHeight = window.innerHeight * 0.15; 
+            baseNaviWidth = baseNaviHeight * ratio;
+
+            // 基础宽度安全阀
+            if (baseNaviWidth > 4000) {
+                baseNaviWidth = 4000;
+                baseNaviHeight = baseNaviWidth / ratio;
+            }
+            if (baseNaviWidth < window.innerWidth) {
                 baseNaviWidth = window.innerWidth;
+                baseNaviHeight = baseNaviWidth / ratio;
             }
             
             outer.innerHTML = '<div id="navi-mover"><div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div></div>';
@@ -301,6 +305,7 @@
             const naviMover = document.getElementById('navi-mover');
             if(!naviContainer || !naviMover) return;
 
+            // 1. 快速定位阶段：CSS 丝滑秒级拉伸
             naviContainer.style.transition = "transform 0.15s ease-out";
             naviMover.style.transition = "transform 0.15s ease-out";
 
@@ -309,11 +314,15 @@
 
             updateNaviPosition(); 
 
+            // 2. 静待重绘阶段：停顿 300ms 后加载高清物理像素
             clearTimeout(bakeNaviTimeout);
             bakeNaviTimeout = setTimeout(() => {
                 
                 let maxSafePhysicalScale = targetNaviScale;
-                let maxAllowedPixels = 8000; 
+                
+                // 【核心优化】：将阀值降为 4000 像素
+                // 彻底释放安卓 GPU 压力，实现瞬间的高清烘焙
+                let maxAllowedPixels = 4000; 
                 if (baseNaviWidth * maxSafePhysicalScale > maxAllowedPixels) {
                     maxSafePhysicalScale = maxAllowedPixels / baseNaviWidth;
                 }
@@ -330,11 +339,12 @@
                 let remainingVisualScale = targetNaviScale / physicalNaviScale;
                 naviContainer.style.transform = `scale(${remainingVisualScale})`; 
 
+                // 命令引擎立刻重新渲染
                 if (viewer && viewer.navigator) {
                     viewer.navigator.updateSize();
                     viewer.navigator.viewport.goHome(true); 
                 }
-            }, 300); 
+            }, 300); // 停顿 300 毫秒后执行
         }
 
         function startAnimationLoop() {
