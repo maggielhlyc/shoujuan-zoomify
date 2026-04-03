@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 48.0 安卓破壁版</title>
+    <title>私人美术館 - 49.0 引擎原生绝杀版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -78,7 +78,7 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】请务必保留您自己的画作数据内容！
+        // 【⚠️】别忘了贴入您的《清明上河图》数据！
         var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
@@ -134,60 +134,6 @@
             });
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
-
-            const naviOuter = document.getElementById('navi-outer');
-
-            // ========================================================
-            // 【核心修复：最高权限接管滚轮，无视安卓底层的事件劫持】
-            // ========================================================
-            const handleWheel = function(e) {
-                if(isPlaying) return; 
-                
-                // 检查鼠标现在是不是正好停留在导览图区域
-                if (naviOuter && naviOuter.contains(e.target)) {
-                    e.preventDefault();   // 强制阻止安卓滑动网页
-                    e.stopPropagation();  // 强制阻止主图跟着缩放
-                    
-                    // 兼容现代 wheel 和老旧 mousewheel
-                    let zoomDirection = 0;
-                    if (e.deltaY !== undefined) {
-                        zoomDirection = e.deltaY < 0 ? 0.08 : -0.08;
-                    } else if (e.wheelDelta !== undefined) {
-                        zoomDirection = e.wheelDelta > 0 ? 0.08 : -0.08;
-                    }
-                    
-                    if (zoomDirection !== 0) zoomNavi(zoomDirection);
-                }
-            };
-            
-            // 直接绑定在 window 窗口上，并开启 capture (第一顺位拦截)
-            window.addEventListener('wheel', handleWheel, { passive: false, capture: true });
-            window.addEventListener('mousewheel', handleWheel, { passive: false, capture: true });
-
-            // 依然保留双指触控功能，供安卓画屏直接手摸操作
-            let initialPinchDistance = null;
-            naviOuter.addEventListener('touchstart', function(e) {
-                if(isPlaying) return;
-                if(e.touches.length === 2) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    initialPinchDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                }
-            }, { passive: false, capture: true });
-
-            naviOuter.addEventListener('touchmove', function(e) {
-                if(isPlaying) return;
-                if(e.touches.length === 2 && initialPinchDistance !== null) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    let currentDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-                    let delta = (currentDistance - initialPinchDistance) * 0.005; 
-                    zoomNavi(delta);
-                    initialPinchDistance = currentDistance;
-                }
-            }, { passive: false, capture: true });
-
-            naviOuter.addEventListener('touchend', function(e) { initialPinchDistance = null; }, { passive: false, capture: true });
         }
 
         function loadArt(index) {
@@ -262,6 +208,38 @@
 
                 applyInitialLayout();
                 startAnimationLoop();
+
+                // ========================================================
+                // 【核心绝杀】：调用 OSD 引擎原生事件，拦截内部通信
+                // 彻底解决跨平台（Windows/Android/iOS）触控与滚轮差异！
+                // ========================================================
+                if (viewer.navigator) {
+                    
+                    // 1. 拦截鼠标滚轮 (Native Scroll)
+                    viewer.navigator.addHandler('canvas-scroll', function(e) {
+                        if(isPlaying) return;
+                        
+                        // 【极其关键】：这一句阻断了导览图将滚轮信号传递给下方主图！
+                        e.preventDefaultAction = true; 
+                        
+                        // OSD 原生引擎已经将各大系统的方向差异抹平，e.scroll > 0 恒定为放大
+                        let zoomDirection = e.scroll > 0 ? 0.08 : -0.08;
+                        zoomNavi(zoomDirection);
+                    });
+
+                    // 2. 拦截触控屏双指捏合 (Native Pinch)
+                    viewer.navigator.addHandler('canvas-pinch', function(e) {
+                        if(isPlaying) return;
+                        
+                        // 【极其关键】：阻断默认捏合行为
+                        e.preventDefaultAction = true; 
+                        
+                        if (e.lastDistance) {
+                            let delta = (e.distance - e.lastDistance) * 0.005;
+                            zoomNavi(delta);
+                        }
+                    });
+                }
             });
         }
 
