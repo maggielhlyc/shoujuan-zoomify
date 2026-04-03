@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 59.0 原生极速高清版</title>
+    <title>私人美术館 - 62.0 终极悬浮与深空金字塔版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,25 +15,43 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        /* 导览图外部容器，永远 100% 高亮 */
-        #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 1; transition: opacity 0.4s; transform: translateY(-100%); touch-action: none; }
+        /* 【核心结构1】：动态计算 Bottom 实现悬浮跟随，永远保持 100% 亮度 */
+        #navi-outer { 
+            position: absolute; 
+            left: 0; 
+            width: 100vw; 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-end; 
+            z-index: 150; 
+            pointer-events: none; 
+            opacity: 1; 
+        }
         
-        /* 删除了所有 CSS transform 相关容器，回归本源 */
+        /* 承载左右平移，锚点设为底部中心 */
+        #navi-mover { 
+            transform-origin: bottom center; 
+            pointer-events: auto; 
+            touch-action: none; 
+        }
+        
+        /* 承载放大缩放，锚点设为底部中心，放大时自然向上伸展！ */
         #navi-container { 
             background: var(--bg-color); 
-            border-top: 1px solid rgba(212, 160, 23, 0.2); 
-            border-bottom: 1px solid rgba(212, 160, 23, 0.2); 
+            border: 2px solid rgba(212, 160, 23, 0.6); 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            transform-origin: bottom center; 
             cursor: ns-resize; 
             touch-action: none; 
         }
         
-        body.paused #navi-outer { pointer-events: auto; }
-        body.paused #navi-container { border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
+        body.paused #navi-container { border-color: var(--accent-color); box-shadow: 0 0 20px rgba(212, 160, 23, 0.8); }
 
         #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; pointer-events: none; }
         body.paused #header-zone { top: 0; }
         #art-title { font-size: 3.2vh; color: var(--accent-color); letter-spacing: 4px; font-weight: bold; text-align: center; }
         
+        /* 物理底边线，层级最高防误触 */
         #control-bar { 
             position: absolute; bottom: 0; left: 0; width: 100%; height: auto; min-height: 80px;
             padding: 20px 20px 30px 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px; 
@@ -57,7 +75,11 @@
 <body>
 
     <div id="viewer"></div>
-    <div id="navi-outer"></div> 
+    <div id="navi-outer">
+        <div id="navi-mover">
+            <div id="navi-container"></div>
+        </div>
+    </div> 
     <div id="header-zone"><div id="art-title">加载中...</div></div>
     
     <div id="control-bar">
@@ -67,8 +89,8 @@
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
         
-        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(-0.5)">导览-</button>
-        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(0.5)">导览+</button>
+        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(-0.2)">导览-</button>
+        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(0.2)">导览+</button>
         
         <button class="btn" onclick="resetView()">全景</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
@@ -79,6 +101,7 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
+        // 【⚠️】请务必保留您的画作数据！
          var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
@@ -119,6 +142,8 @@
         var baseNaviWidth = 0;
         var baseNaviHeight = 0;
         var targetNaviScale = 1.0;  
+        var physicalNaviScale = 1.0;
+        var bakeNaviTimeout = null;
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -132,52 +157,53 @@
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
 
-            const naviOuter = document.getElementById('navi-outer');
-
-            naviOuter.addEventListener('wheel', function(e) {
-                if(isPlaying) return; 
-                e.preventDefault();   
-                e.stopPropagation();  
-                
-                let zoomDirection = 0;
-                if (e.deltaY !== undefined) zoomDirection = e.deltaY < 0 ? 0.2 : -0.2;
-                if (zoomDirection !== 0) zoomNavi(zoomDirection);
-            }, { passive: false, capture: true });
+            // ========================================================
+            // 【事件路由分发】：完美分离导览图与主图的滚轮和触控
+            // ========================================================
+            window.addEventListener('wheel', function(e) {
+                const naviOuter = document.getElementById('navi-outer');
+                if (naviOuter && naviOuter.contains(e.target)) {
+                    if (isPlaying) return;
+                    e.preventDefault();
+                    e.stopImmediatePropagation(); // 拦截，不让主图缩放
+                    let zoomDirection = 0;
+                    if (e.deltaY !== undefined) zoomDirection = e.deltaY < 0 ? 0.2 : -0.2;
+                    if (zoomDirection !== 0) zoomNavi(zoomDirection);
+                }
+                // 否则鼠标在主图区域，系统自然放行，主图丝滑缩放！
+            }, { capture: true, passive: false });
 
             let initialPinchDistance = null;
-
-            naviOuter.addEventListener('touchstart', function(e) {
-                if(isPlaying) return;
+            window.addEventListener('touchstart', function(e) {
                 if(e.touches.length === 2) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    initialPinchDistance = Math.hypot(
-                        e.touches[0].pageX - e.touches[1].pageX,
-                        e.touches[0].pageY - e.touches[1].pageY
-                    );
+                    const naviOuter = document.getElementById('navi-outer');
+                    if (naviOuter && naviOuter.contains(e.touches[0].target)) {
+                        if(isPlaying) return;
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        initialPinchDistance = Math.hypot(
+                            e.touches[0].pageX - e.touches[1].pageX,
+                            e.touches[0].pageY - e.touches[1].pageY
+                        );
+                    }
                 }
-            }, { passive: false, capture: true });
+            }, { capture: true, passive: false });
 
-            naviOuter.addEventListener('touchmove', function(e) {
-                if(isPlaying) return;
+            window.addEventListener('touchmove', function(e) {
                 if(e.touches.length === 2 && initialPinchDistance !== null) {
                     e.preventDefault();
-                    e.stopPropagation();
-                    
+                    e.stopImmediatePropagation();
                     let currentDistance = Math.hypot(
                         e.touches[0].pageX - e.touches[1].pageX,
                         e.touches[0].pageY - e.touches[1].pageY
                     );
-                    
                     let delta = (currentDistance - initialPinchDistance) * 0.01; 
                     zoomNavi(delta);
                     initialPinchDistance = currentDistance;
                 }
-            }, { passive: false, capture: true });
+            }, { capture: true, passive: false });
 
-            naviOuter.addEventListener('touchend', function(e) {
-                initialPinchDistance = null; 
-            }, { passive: false, capture: true });
+            window.addEventListener('touchend', function(e) { initialPinchDistance = null; }, { capture: true, passive: false });
         }
 
         function loadArt(index) {
@@ -188,25 +214,19 @@
             if (viewer) { viewer.destroy(); viewer = null; }
 
             targetNaviScale = 1.0;
+            physicalNaviScale = 1.0;
 
-            const outer = document.getElementById('navi-outer');
             let ratio = art.width / art.height;
             
-            // ========================================================
-            // 【核心修正1】：导览图基础物理宽度，绝对不允许超过屏幕宽度！
-            // 彻底解决初始卡顿和清明上河图红框消失的问题。
-            // ========================================================
-            baseNaviWidth = window.innerWidth;
+            // 导览图基础宽度限定为屏幕的 80%，留白更具画卷感
+            baseNaviWidth = window.innerWidth * 0.8;
+            if(baseNaviWidth > 4000) baseNaviWidth = 4000;
             baseNaviHeight = baseNaviWidth / ratio;
 
-            let maxHeight = window.innerHeight * 0.15; 
-            if (baseNaviHeight > maxHeight) {
-                baseNaviHeight = maxHeight;
-                baseNaviWidth = baseNaviHeight * ratio;
-            }
-            
-            // 极简 DOM，去除了所有过渡动画盒子
-            outer.innerHTML = '<div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div>';
+            document.getElementById('navi-container').style.width = baseNaviWidth + 'px';
+            document.getElementById('navi-container').style.height = baseNaviHeight + 'px';
+            document.getElementById('navi-mover').style.transform = `translateX(0px)`;
+            document.getElementById('navi-container').style.transform = `scale(1)`;
 
             let finalTileSources;
             if (Array.isArray(art.folder)) {
@@ -253,6 +273,10 @@
                 document.getElementById('full-desc').innerText = art.desc;
                 document.getElementById('art-selector').value = index;
 
+                // 移除引擎默认绑定的导览图干扰事件，确保纯粹的自定义控制
+                viewer.navigator.removeAllHandlers('canvas-scroll');
+                viewer.navigator.removeAllHandlers('canvas-pinch');
+
                 applyInitialLayout();
                 startAnimationLoop();
             });
@@ -262,30 +286,13 @@
             let art = artworks[currentArtIndex];
             let container = viewer.viewport.getContainerSize();
             let dpr = window.devicePixelRatio || 1;
-
-            let cbHeight = document.getElementById('control-bar').offsetHeight;
-            let topPaddingPx = baseNaviHeight + 50; 
-            let bottomPaddingPx = cbHeight + 20; 
-
-            let safeHeightPx = Math.max(container.y * 0.4, container.y - topPaddingPx - bottomPaddingPx);
-
             let nativeZoom = (art.width / dpr) / container.x;
             let imgRatio = art.height / art.width; 
             
-            let fitZoom = (safeHeightPx / container.x) / imgRatio;
-
+            // 初始时预留 50% 空间，防止撑满屏幕
+            let fitZoom = (container.y * 0.5 / container.x) / imgRatio; 
             let finalZoom = Math.min(nativeZoom, fitZoom);
             viewer.viewport.zoomTo(finalZoom, null, true);
-
-            let targetVpHeight = (container.y / container.x) / finalZoom;
-            let bottomPaddingWorld = (bottomPaddingPx / container.y) * targetVpHeight;
-
-            centerY = imgRatio - (targetVpHeight / 2) + bottomPaddingWorld;
-            
-            let targetVpWidth = 1.0 / finalZoom;
-            let startX = 1.0 - (targetVpWidth / 2); 
-            
-            viewer.viewport.panTo(new OpenSeadragon.Point(startX, centerY), true);
         }
 
         function handleSmartResize() {
@@ -294,63 +301,106 @@
         }
 
         // ========================================================
-        // 【核心大杀器】：抛弃 CSS 糊弄拉伸，启用原生深空放大！
-        // 瞬间加载超高清原图细节，且容器尺寸不变，绝对不卡顿！
+        // 【核心绝杀】：300ms 深空瓦片金字塔烘焙回归！
         // ========================================================
         function zoomNavi(delta) {
             targetNaviScale += delta;
             if (targetNaviScale < 1) targetNaviScale = 1; 
             if (targetNaviScale > 10) targetNaviScale = 10; 
 
-            if (viewer && viewer.navigator && viewer.navigator.viewport) {
-                let homeZoom = viewer.navigator.viewport.getHomeZoom();
-                // 调用原生引擎变焦：利用引擎自带的平滑过渡和高清瓦片加载机制
-                viewer.navigator.viewport.zoomTo(homeZoom * targetNaviScale, null, false);
-            }
+            const naviContainer = document.getElementById('navi-container');
+            if(!naviContainer) return;
+
+            // 1. 瞬时响应：CSS 秒级丝滑拉伸，提供完美的跟随手感
+            naviContainer.style.transition = "transform 0.15s ease-out";
+            let visualScale = targetNaviScale / physicalNaviScale;
+            naviContainer.style.transform = `scale(${visualScale})`;
+
+            // 2. 停顿 300ms 后：强制触发引擎瓦片金字塔 (Deep Zoom)！
+            clearTimeout(bakeNaviTimeout);
+            bakeNaviTimeout = setTimeout(() => {
+                
+                // 【8000像素黄金锁】：比上一版宽一倍！彻底释放高清潜力！
+                let maxAllowedPixels = 8000; 
+                let maxSafePhysicalScale = targetNaviScale;
+                if (baseNaviWidth * maxSafePhysicalScale > maxAllowedPixels) {
+                    maxSafePhysicalScale = maxAllowedPixels / baseNaviWidth;
+                }
+                maxSafePhysicalScale = Math.max(1, maxSafePhysicalScale); 
+
+                physicalNaviScale = maxSafePhysicalScale;
+
+                naviContainer.style.transition = "none";
+                
+                // 扩张 DOM 的物理尺寸
+                naviContainer.style.width = (baseNaviWidth * physicalNaviScale) + 'px';
+                naviContainer.style.height = (baseNaviHeight * physicalNaviScale) + 'px';
+
+                let remainingVisualScale = targetNaviScale / physicalNaviScale;
+                naviContainer.style.transform = `scale(${remainingVisualScale})`; 
+
+                // 🔥 引擎大喝一声：立刻向下挖掘金字塔高清瓦片填满新容器！
+                if (viewer && viewer.navigator) {
+                    viewer.navigator.updateSize();
+                    viewer.navigator.viewport.goHome(true); 
+                }
+            }, 300); 
         }
 
+        // ========================================================
+        // 【物理锚定引擎】：向上生长的画卷与悬浮跟随
+        // ========================================================
         function startAnimationLoop() {
             function step() {
-                if (isPlaying && viewer && viewer.viewport) {
+                if (viewer && viewer.viewport) {
                     let currentPos = viewer.viewport.getCenter();
-                    let newX = currentPos.x + scrollStep;
-                    
-                    let vpWidth = viewer.viewport.getBounds().width;
-                    let leftLimit = vpWidth / 2;
+                    let newX = currentPos.x;
 
-                    if (newX < leftLimit) {
-                        if (isAutoCycle) {
-                            let nextIndex = (currentArtIndex + 1) % artworks.length;
-                            loadArt(nextIndex);
-                            return; 
-                        } else {
-                            newX = 1.1; 
+                    if (isPlaying) {
+                        newX += scrollStep;
+                        let vpWidth = viewer.viewport.getBounds().width;
+                        let leftLimit = vpWidth / 2;
+                        if (newX < leftLimit) {
+                            if (isAutoCycle) { loadArt((currentArtIndex + 1) % artworks.length); return; } 
+                            else { newX = 1.1; }
                         }
+                        if (newX > 1.1) newX = -0.1;
                     }
-                    if (newX > 1.1) newX = -0.1;
-                    
-                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
-                }
 
-                // ========================================================
-                // 【红框智能追踪引擎】：确保放大后的导览图始终跟着红框移动
-                // ========================================================
-                if (viewer && viewer.navigator && viewer.navigator.viewport && viewer.world.getItemCount() > 0) {
-                    let mainCenter = viewer.viewport.getCenter(true); 
-                    let homeBounds = viewer.navigator.viewport.getHomeBounds();
+                    // 1. 【底边锚定引擎】：无论主图怎么缩放，底边永远贴着控制栏向上伸展
+                    let art = artworks[currentArtIndex];
+                    let imgRatio = art.height / art.width;
+                    let containerSize = viewer.viewport.getContainerSize();
+                    let currentZoom = viewer.viewport.getZoom();
+                    let targetVpHeight = (containerSize.y / containerSize.x) / currentZoom;
                     
-                    if (homeBounds) {
-                        let homeCenter = homeBounds.getCenter();
-                        // 妙到极致的插值算法：1倍时不平移，10倍时几乎完全锁死红框在中心
-                        let factor = 1 - (1 / targetNaviScale); 
-                        let naviPanX = homeCenter.x + (mainCenter.x - homeCenter.x) * factor;
-                        let naviPanY = homeCenter.y + (mainCenter.y - homeCenter.y) * factor;
+                    let cbHeight = document.getElementById('control-bar').offsetHeight || 80;
+                    let bottomGap = 10; // 主图距离底部控制栏 10px 间隙
+                    let offsetWorld = ((cbHeight + bottomGap) / containerSize.y) * targetVpHeight;
+                    
+                    let newY = imgRatio + offsetWorld - (targetVpHeight / 2);
+                    viewer.viewport.panTo(new OpenSeadragon.Point(newX, newY), true);
 
-                        // 强行平移导览图底片，完美匹配追踪
-                        viewer.navigator.viewport.panTo(new OpenSeadragon.Point(naviPanX, naviPanY), true);
+                    // 2. 【顶端悬浮引擎】：导览图感知主图顶部的抬升，同步往上顶！
+                    // 计算出此时此刻主画卷顶部边沿在屏幕上的绝对 Y 像素坐标
+                    let topPixel = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0), true);
+                    const naviOuter = document.getElementById('navi-outer');
+                    if (naviOuter) {
+                        let naviGap = 15; // 导览图距离主图顶部 15px 间隙
+                        // 导览图的 bottom 距离 = (屏幕高度 - 主图顶点) + 15px 间隙
+                        let bottomPos = window.innerHeight - topPixel.y + naviGap;
+                        naviOuter.style.bottom = bottomPos + "px";
+                    }
+
+                    // 3. 【红框追踪引擎】：同步平移导览图容器，保持红框永远居中
+                    const naviMover = document.getElementById('navi-mover');
+                    if (naviMover) {
+                        let p = currentPos.x;
+                        p = Math.max(0, Math.min(1, p));
+                        let translate_X = baseNaviWidth * (p - 0.5) * (1 - targetNaviScale);
+                        naviMover.style.transform = `translateX(${translate_X}px)`;
                     }
                 }
-
                 animationRequest = requestAnimationFrame(step);
             }
             animationRequest = requestAnimationFrame(step);
@@ -380,10 +430,23 @@
         function resetView() {
             if (viewer) {
                 targetNaviScale = 1.0;
-                if (viewer.navigator && viewer.navigator.viewport) {
-                    let homeZoom = viewer.navigator.viewport.getHomeZoom();
-                    viewer.navigator.viewport.zoomTo(homeZoom, null, false);
+                physicalNaviScale = 1.0;
+                const naviContainer = document.getElementById('navi-container');
+                const naviMover = document.getElementById('navi-mover');
+                
+                if(naviContainer && naviMover) {
+                    naviContainer.style.transition = "none";
+                    naviMover.style.transition = "none";
+                    naviContainer.style.width = baseNaviWidth + 'px';
+                    naviContainer.style.height = baseNaviHeight + 'px';
+                    naviContainer.style.transform = `scale(1)`;
+                    naviMover.style.transform = `translateX(0px)`;
+                    if (viewer.navigator) {
+                        viewer.navigator.updateSize();
+                        viewer.navigator.viewport.goHome(true);
+                    }
                 }
+
                 applyInitialLayout();
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
