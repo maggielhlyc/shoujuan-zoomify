@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 58.0 极速高清版</title>
+    <title>私人美术館 - 59.0 原生极速高清版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,15 +15,14 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
+        /* 导览图外部容器，永远 100% 高亮 */
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 1; transition: opacity 0.4s; transform: translateY(-100%); touch-action: none; }
-        #navi-mover { will-change: transform; touch-action: none; }
         
+        /* 删除了所有 CSS transform 相关容器，回归本源 */
         #navi-container { 
             background: var(--bg-color); 
             border-top: 1px solid rgba(212, 160, 23, 0.2); 
             border-bottom: 1px solid rgba(212, 160, 23, 0.2); 
-            transform-origin: bottom center; 
-            will-change: transform; 
             cursor: ns-resize; 
             touch-action: none; 
         }
@@ -68,8 +67,8 @@
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
         
-        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(-0.1)">导览-</button>
-        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(0.1)">导览+</button>
+        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(-0.5)">导览-</button>
+        <button class="btn" style="background:#5a3f35;" onclick="zoomNavi(0.5)">导览+</button>
         
         <button class="btn" onclick="resetView()">全景</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
@@ -80,7 +79,7 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        var artworks = [
+         var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
             { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` },
@@ -120,8 +119,6 @@
         var baseNaviWidth = 0;
         var baseNaviHeight = 0;
         var targetNaviScale = 1.0;  
-        var physicalNaviScale = 1.0;
-        var bakeNaviTimeout = null;
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -143,7 +140,7 @@
                 e.stopPropagation();  
                 
                 let zoomDirection = 0;
-                if (e.deltaY !== undefined) zoomDirection = e.deltaY < 0 ? 0.08 : -0.08;
+                if (e.deltaY !== undefined) zoomDirection = e.deltaY < 0 ? 0.2 : -0.2;
                 if (zoomDirection !== 0) zoomNavi(zoomDirection);
             }, { passive: false, capture: true });
 
@@ -172,7 +169,7 @@
                         e.touches[0].pageY - e.touches[1].pageY
                     );
                     
-                    let delta = (currentDistance - initialPinchDistance) * 0.005; 
+                    let delta = (currentDistance - initialPinchDistance) * 0.01; 
                     zoomNavi(delta);
                     initialPinchDistance = currentDistance;
                 }
@@ -191,15 +188,13 @@
             if (viewer) { viewer.destroy(); viewer = null; }
 
             targetNaviScale = 1.0;
-            physicalNaviScale = 1.0;
 
             const outer = document.getElementById('navi-outer');
-            
             let ratio = art.width / art.height;
             
             // ========================================================
-            // 【核心修正】：导览图基础物理宽度，绝对不允许超过屏幕宽度！
-            // 解决初始卡顿、红框消失、以及为 300ms 烘焙腾出升维空间。
+            // 【核心修正1】：导览图基础物理宽度，绝对不允许超过屏幕宽度！
+            // 彻底解决初始卡顿和清明上河图红框消失的问题。
             // ========================================================
             baseNaviWidth = window.innerWidth;
             baseNaviHeight = baseNaviWidth / ratio;
@@ -210,7 +205,8 @@
                 baseNaviWidth = baseNaviHeight * ratio;
             }
             
-            outer.innerHTML = '<div id="navi-mover"><div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div></div>';
+            // 极简 DOM，去除了所有过渡动画盒子
+            outer.innerHTML = '<div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div>';
 
             let finalTileSources;
             if (Array.isArray(art.folder)) {
@@ -297,54 +293,20 @@
             applyInitialLayout(); 
         }
 
+        // ========================================================
+        // 【核心大杀器】：抛弃 CSS 糊弄拉伸，启用原生深空放大！
+        // 瞬间加载超高清原图细节，且容器尺寸不变，绝对不卡顿！
+        // ========================================================
         function zoomNavi(delta) {
             targetNaviScale += delta;
             if (targetNaviScale < 1) targetNaviScale = 1; 
             if (targetNaviScale > 10) targetNaviScale = 10; 
 
-            const naviContainer = document.getElementById('navi-container');
-            const naviMover = document.getElementById('navi-mover');
-            if(!naviContainer || !naviMover) return;
-
-            // 1. 快速定位阶段：CSS 丝滑拉伸
-            naviContainer.style.transition = "transform 0.15s ease-out";
-            naviMover.style.transition = "transform 0.15s ease-out";
-
-            let visualScale = targetNaviScale / physicalNaviScale;
-            naviContainer.style.transform = `scale(${visualScale})`;
-
-            updateNaviPosition(); 
-
-            // 2. 高清重绘阶段：停顿 300 毫秒后真正提取画质！
-            clearTimeout(bakeNaviTimeout);
-            bakeNaviTimeout = setTimeout(() => {
-                
-                let maxSafePhysicalScale = targetNaviScale;
-                
-                // 【4000像素黄金锁】：彻底释放安卓潜力，防止炸显存
-                let maxAllowedPixels = 4000; 
-                if (baseNaviWidth * maxSafePhysicalScale > maxAllowedPixels) {
-                    maxSafePhysicalScale = maxAllowedPixels / baseNaviWidth;
-                }
-                maxSafePhysicalScale = Math.max(1, maxSafePhysicalScale); 
-
-                physicalNaviScale = maxSafePhysicalScale;
-
-                naviContainer.style.transition = "none";
-                naviMover.style.transition = "none";
-
-                naviContainer.style.width = (baseNaviWidth * physicalNaviScale) + 'px';
-                naviContainer.style.height = (baseNaviHeight * physicalNaviScale) + 'px';
-
-                let remainingVisualScale = targetNaviScale / physicalNaviScale;
-                naviContainer.style.transform = `scale(${remainingVisualScale})`; 
-
-                // 强制引擎读取新的物理尺寸，瞬间变清晰！
-                if (viewer && viewer.navigator) {
-                    viewer.navigator.updateSize();
-                    viewer.navigator.viewport.goHome(true); 
-                }
-            }, 300); 
+            if (viewer && viewer.navigator && viewer.navigator.viewport) {
+                let homeZoom = viewer.navigator.viewport.getHomeZoom();
+                // 调用原生引擎变焦：利用引擎自带的平滑过渡和高清瓦片加载机制
+                viewer.navigator.viewport.zoomTo(homeZoom * targetNaviScale, null, false);
+            }
         }
 
         function startAnimationLoop() {
@@ -369,7 +331,26 @@
                     
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
                 }
-                updateNaviPosition();
+
+                // ========================================================
+                // 【红框智能追踪引擎】：确保放大后的导览图始终跟着红框移动
+                // ========================================================
+                if (viewer && viewer.navigator && viewer.navigator.viewport && viewer.world.getItemCount() > 0) {
+                    let mainCenter = viewer.viewport.getCenter(true); 
+                    let homeBounds = viewer.navigator.viewport.getHomeBounds();
+                    
+                    if (homeBounds) {
+                        let homeCenter = homeBounds.getCenter();
+                        // 妙到极致的插值算法：1倍时不平移，10倍时几乎完全锁死红框在中心
+                        let factor = 1 - (1 / targetNaviScale); 
+                        let naviPanX = homeCenter.x + (mainCenter.x - homeCenter.x) * factor;
+                        let naviPanY = homeCenter.y + (mainCenter.y - homeCenter.y) * factor;
+
+                        // 强行平移导览图底片，完美匹配追踪
+                        viewer.navigator.viewport.panTo(new OpenSeadragon.Point(naviPanX, naviPanY), true);
+                    }
+                }
+
                 animationRequest = requestAnimationFrame(step);
             }
             animationRequest = requestAnimationFrame(step);
@@ -387,25 +368,6 @@
             }
         }
 
-        function updateNaviPosition() {
-            if (!viewer || !viewer.viewport || viewer.world.getItemCount() === 0) return;
-            const naviOuter = document.getElementById('navi-outer');
-            const naviMover = document.getElementById('navi-mover');
-            if (!naviOuter || !naviMover) return;
-            
-            const imageBounds = viewer.world.getHomeBounds();
-            const mainCenter = viewer.viewport.getCenter(true); 
-            
-            let p = mainCenter.x / imageBounds.width;
-            p = Math.max(0, Math.min(1, p));
-            
-            let translate_X = baseNaviWidth * (p - 0.5) * (1 - targetNaviScale);
-            naviMover.style.transform = `translateX(${translate_X}px)`;
-
-            const pixelTopLeft = viewer.viewport.viewportToViewerElementCoordinates(imageBounds.getTopLeft());
-            naviOuter.style.top = (pixelTopLeft.y - 30) + "px";
-        }
-
         function togglePlayState() {
             if (document.body.classList.contains('show-details')) {
                 document.body.classList.remove('show-details');
@@ -418,22 +380,10 @@
         function resetView() {
             if (viewer) {
                 targetNaviScale = 1.0;
-                physicalNaviScale = 1.0;
-                const naviContainer = document.getElementById('navi-container');
-                const naviMover = document.getElementById('navi-mover');
-                
-                if(naviContainer && naviMover) {
-                    naviContainer.style.transition = "none";
-                    naviMover.style.transition = "none";
-                    naviContainer.style.width = baseNaviWidth + 'px';
-                    naviContainer.style.height = baseNaviHeight + 'px';
-                    naviContainer.style.transform = `scale(1)`;
-                    if (viewer.navigator) {
-                        viewer.navigator.updateSize();
-                        viewer.navigator.viewport.goHome(true);
-                    }
+                if (viewer.navigator && viewer.navigator.viewport) {
+                    let homeZoom = viewer.navigator.viewport.getHomeZoom();
+                    viewer.navigator.viewport.zoomTo(homeZoom, null, false);
                 }
-
                 applyInitialLayout();
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
