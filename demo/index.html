@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 51.0 API 物理切断版</title>
+    <title>私人美术館 - 52.0 上帝视角缴械版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -18,7 +18,6 @@
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); touch-action: none; }
         #navi-mover { will-change: transform; touch-action: none; }
         
-        /* 强制保留光标样式，去除不必要的拦截 CSS */
         #navi-container { 
             background: var(--bg-color); 
             border-top: 1px solid rgba(212, 160, 23, 0.2); 
@@ -79,8 +78,8 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】请保留您的画作数据！
-        var artworks = [
+        // 【⚠️】请务必保留您的画作数据！
+       var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
             { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` },
@@ -135,8 +134,84 @@
             });
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
+
+            // ========================================================
+            // 【神来之笔：上帝视角坐标系拦截 + 物理缴械法】
+            // 完全绕开 DOM 事件链争夺，基于纯粹的坐标位置和按键逻辑执行！
+            // ========================================================
+            const handleWheel = function(e) {
+                if (isPlaying) return;
+                
+                const naviOuter = document.getElementById('navi-outer');
+                if(!naviOuter) return;
+                
+                const rect = naviOuter.getBoundingClientRect();
+
+                // 核心判断：鼠标当前的物理坐标，是不是在导览图矩形内？
+                if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                    e.clientY >= rect.top && e.clientY <= rect.bottom) {
+
+                    e.preventDefault(); // 阻止浏览器滚动网页
+
+                    // 1. 调用那个“一直有效”的按钮缩放逻辑！
+                    let zoomDir = 0;
+                    if (e.deltaY !== undefined) zoomDir = e.deltaY < 0 ? 0.08 : -0.08;
+                    else if (e.wheelDelta !== undefined) zoomDir = e.wheelDelta > 0 ? 0.08 : -0.08;
+                    
+                    if (zoomDir !== 0) zoomNavi(zoomDir);
+
+                    // 2. 釜底抽薪：给 OSD 主图引擎强行缴械
+                    // 不管 OSD 怎么抢信号，只要把它缩放倍率改成 1.0，它怎么算主图都不会动！
+                    if (viewer) {
+                        viewer.zoomPerScroll = 1.0; // 缴械
+                        clearTimeout(window._restoreZoomTimer);
+                        window._restoreZoomTimer = setTimeout(() => {
+                            viewer.zoomPerScroll = 1.1; // 100毫秒后悄悄恢复武器
+                        }, 100);
+                    }
+                }
+            };
             
-            // 🔥 注：已删除所有繁琐且无效的 DOM 事件拦截代码，全部交由 OSD 引擎接管！
+            // 绑定在整个系统最高级别的 Window 上！
+            window.addEventListener('wheel', handleWheel, { capture: true, passive: false });
+            window.addEventListener('mousewheel', handleWheel, { capture: true, passive: false });
+
+            // 对于支持触摸屏的安卓画屏，加上双指手势坐标拦截
+            let initialPinchDistance = null;
+            window.addEventListener('touchstart', function(e) {
+                if (isPlaying || e.touches.length !== 2) return;
+                
+                const rect = document.getElementById('navi-outer').getBoundingClientRect();
+                let t1 = e.touches[0];
+                let t2 = e.touches[1];
+
+                // 如果两根手指都在导览图框内
+                if (t1.clientX >= rect.left && t1.clientX <= rect.right && t1.clientY >= rect.top && t1.clientY <= rect.bottom &&
+                    t2.clientX >= rect.left && t2.clientX <= rect.right && t2.clientY >= rect.top && t2.clientY <= rect.bottom) {
+                    
+                    initialPinchDistance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+                    
+                    // 物理缴械：关闭 OSD 主图的双指缩放
+                    if (viewer) viewer.gestureSettingsTouch.pinchToZoom = false; 
+                }
+            }, { capture: true, passive: false });
+
+            window.addEventListener('touchmove', function(e) {
+                if (isPlaying || e.touches.length !== 2 || initialPinchDistance === null) return;
+                e.preventDefault(); 
+                
+                let currentDistance = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                let delta = (currentDistance - initialPinchDistance) * 0.005;
+                zoomNavi(delta); // 调用绝对有效的按钮逻辑
+                initialPinchDistance = currentDistance;
+            }, { capture: true, passive: false });
+
+            window.addEventListener('touchend', function(e) {
+                if (initialPinchDistance !== null) {
+                    initialPinchDistance = null;
+                    if (viewer) viewer.gestureSettingsTouch.pinchToZoom = true; // 恢复主图触控
+                }
+            }, { capture: true, passive: false });
         }
 
         function loadArt(index) {
@@ -211,36 +286,6 @@
 
                 applyInitialLayout();
                 startAnimationLoop();
-
-                // ========================================================
-                // 【绝杀时刻】：物理切断引擎底层的通信电缆
-                // 完全利用 OSD 已经做好的完美跨平台兼容（识别所有安卓鼠标/手势）
-                // ========================================================
-                if (viewer.navigator) {
-                    
-                    // 1. 彻底抹除导览图向主图发送“滚轮联动”和“捏合联动”的源生指令！
-                    viewer.navigator.removeAllHandlers('canvas-scroll');
-                    viewer.navigator.removeAllHandlers('canvas-pinch');
-                    // 保险起见，把双击放大主图也抹除
-                    viewer.navigator.removeAllHandlers('canvas-double-click');
-
-                    // 2. 注入我们自己的纯粹逻辑：拿到信号后，只放大导览图！
-                    viewer.navigator.addHandler('canvas-scroll', function(e) {
-                        if (isPlaying) return;
-                        // OSD 极其聪明，它已经帮我们把安卓/Win的滚轮差异统一成了 e.scroll
-                        let zoomDir = e.scroll > 0 ? 0.08 : -0.08;
-                        zoomNavi(zoomDir);
-                    });
-
-                    viewer.navigator.addHandler('canvas-pinch', function(e) {
-                        if (isPlaying) return;
-                        if (e.lastDistance !== undefined) {
-                            // 完美的双指手势跟踪
-                            let delta = (e.distance - e.lastDistance) * 0.005;
-                            zoomNavi(delta);
-                        }
-                    });
-                }
             });
         }
 
