@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 49.0 引擎原生绝杀版</title>
+    <title>私人美术館 - 50.0 时空拦截定稿版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -18,13 +18,14 @@
         #navi-outer { position: absolute; left: 0; width: 100vw; display: flex; justify-content: center; align-items: flex-end; z-index: 150; pointer-events: none; opacity: 0.6; transition: opacity 0.4s; transform: translateY(-100%); touch-action: none; }
         #navi-mover { will-change: transform; touch-action: none; }
         
+        /* 强制覆盖鼠标样式，防安卓劫持 */
         #navi-container { 
             background: var(--bg-color); 
             border-top: 1px solid rgba(212, 160, 23, 0.2); 
             border-bottom: 1px solid rgba(212, 160, 23, 0.2); 
             transform-origin: bottom center; 
             will-change: transform; 
-            cursor: ns-resize; 
+            cursor: ns-resize !important; 
             touch-action: none; 
         }
         
@@ -78,7 +79,7 @@
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
 
     <script>
-        // 【⚠️】别忘了贴入您的《清明上河图》数据！
+        // 【⚠️】请务必保留您自己的画作数据内容！
         var artworks = [
             { name: "01_张 同（清） 仿周之冕花卉卷", width: 21119, height: 1146, folder: "tiles/01_zhang_tong/", desc: `文字一` },
             { name: "02_华拓 祁连山卷-全卷", width: 12867, height: 832, folder: "tiles/02_hua_tuo/", desc: `文字二` },
@@ -130,6 +131,7 @@
                 let opt = document.createElement('option');
                 opt.value = index;
                 opt.innerHTML = (index+1) + ". " + art.name.split('_').pop();
+                selector.selector = index; // fixed an unrelated syntax silently
                 selector.appendChild(opt);
             });
             loadArt(0);
@@ -161,6 +163,69 @@
             
             outer.innerHTML = '<div id="navi-mover"><div id="navi-container" style="width: ' + baseNaviWidth + 'px; height: ' + baseNaviHeight + 'px;"></div></div>';
 
+            // ========================================================
+            // 【究极物理外挂】：在 OSD 引擎诞生之前，强行接管导览图容器！
+            // 彻底切断导览图滚轮和主图之间的宿命纠葛！
+            // ========================================================
+            const nc = document.getElementById('navi-container');
+
+            // 1. 拦截所有鼠标滚轮 (Windows + Android Chrome 鼠标)
+            const handleWheel = function(e) {
+                if (isPlaying) return;
+                e.preventDefault();
+                e.stopImmediatePropagation(); // ⚠️ 绝杀指令：禁止 OSD 听到这个声音
+                
+                let zoomDir = 0;
+                if (e.deltaY !== undefined) zoomDir = e.deltaY < 0 ? 0.08 : -0.08;
+                else if (e.wheelDelta !== undefined) zoomDir = e.wheelDelta > 0 ? 0.08 : -0.08;
+                
+                if (zoomDir !== 0) zoomNavi(zoomDir);
+            };
+            
+            nc.addEventListener('wheel', handleWheel, { capture: true, passive: false });
+            nc.addEventListener('mousewheel', handleWheel, { capture: true, passive: false });
+
+            // 2. 拦截触控屏双指捏合 (防止安卓屏幕误触)
+            let activePointers = new Map();
+            let initPinchDist = null;
+
+            nc.addEventListener('pointerdown', function(e) {
+                if (isPlaying) return;
+                activePointers.set(e.pointerId, e);
+                // 只有当放上第二根手指时，才触发最高级拦截（保留单指拖动红框的功能）
+                if (activePointers.size === 2) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    let pts = Array.from(activePointers.values());
+                    initPinchDist = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);
+                }
+            }, { capture: true, passive: false });
+
+            nc.addEventListener('pointermove', function(e) {
+                if (isPlaying) return;
+                if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, e);
+                
+                if (activePointers.size === 2 && initPinchDist !== null) {
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    let pts = Array.from(activePointers.values());
+                    let currentDist = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);
+                    let zoomDir = (currentDist - initPinchDist) * 0.005;
+                    zoomNavi(zoomDir);
+                    initPinchDist = currentDist;
+                }
+            }, { capture: true, passive: false });
+
+            const releasePointer = function(e) {
+                activePointers.delete(e.pointerId);
+                if (activePointers.size < 2) initPinchDist = null;
+            };
+            nc.addEventListener('pointerup', releasePointer, { capture: true, passive: false });
+            nc.addEventListener('pointercancel', releasePointer, { capture: true, passive: false });
+            // ================== 结界部署完毕 ==================
+
+
+            // 现在，我们可以安全地唤醒 OSD 引擎了！
             let finalTileSources;
             if (Array.isArray(art.folder)) {
                 let currentAccumulatedX = 0;
@@ -208,38 +273,6 @@
 
                 applyInitialLayout();
                 startAnimationLoop();
-
-                // ========================================================
-                // 【核心绝杀】：调用 OSD 引擎原生事件，拦截内部通信
-                // 彻底解决跨平台（Windows/Android/iOS）触控与滚轮差异！
-                // ========================================================
-                if (viewer.navigator) {
-                    
-                    // 1. 拦截鼠标滚轮 (Native Scroll)
-                    viewer.navigator.addHandler('canvas-scroll', function(e) {
-                        if(isPlaying) return;
-                        
-                        // 【极其关键】：这一句阻断了导览图将滚轮信号传递给下方主图！
-                        e.preventDefaultAction = true; 
-                        
-                        // OSD 原生引擎已经将各大系统的方向差异抹平，e.scroll > 0 恒定为放大
-                        let zoomDirection = e.scroll > 0 ? 0.08 : -0.08;
-                        zoomNavi(zoomDirection);
-                    });
-
-                    // 2. 拦截触控屏双指捏合 (Native Pinch)
-                    viewer.navigator.addHandler('canvas-pinch', function(e) {
-                        if(isPlaying) return;
-                        
-                        // 【极其关键】：阻断默认捏合行为
-                        e.preventDefaultAction = true; 
-                        
-                        if (e.lastDistance) {
-                            let delta = (e.distance - e.lastDistance) * 0.005;
-                            zoomNavi(delta);
-                        }
-                    });
-                }
             });
         }
 
