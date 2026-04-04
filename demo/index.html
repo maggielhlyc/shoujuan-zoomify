@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 71.0 终极纯净伸涨版 (绝不黑屏)</title>
+    <title>私人美术館 - 72.0 终极同步生长版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -15,7 +15,6 @@
         #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
         body.paused { cursor: default; }
 
-        /* 导览图外部浮动层：flex-end 确保高度增加时必定向上伸涨 */
         #navi-outer { 
             position: absolute; 
             left: 0; 
@@ -28,13 +27,12 @@
             opacity: 1; 
         }
         
-        /* 【极简之美】：剔除边框，加入高度伸涨动画 */
+        /* 删除了 CSS transition，高度变化交由 JS 帧动画精确接管 */
         #navi-container { 
             position: relative;
             background: var(--bg-color); 
             pointer-events: auto; 
             touch-action: none; 
-            transition: height 0.2s ease-out; /* 伸涨动画 */
         }
         
         #navi-viewer { width: 100%; height: 100%; cursor: ns-resize; }
@@ -107,9 +105,7 @@
             { name: "03_金楙 秋岩爽气卷", width: 5546, height: 582, folder: "tiles/03_jin_mao/", desc: `文字三` },
             { 
                 name: "04_清明上河图 (宋本 10段无缝拼接)", 
-                width: 395409, 
-                height: 7595, 
-                desc: `文字四`,
+                width: 395409, height: 7595, desc: `文字四`,
                 folder: [
                     { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_a/" }, width: 50000 },
                     { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_b/" }, width: 50000 },
@@ -127,11 +123,11 @@
         ];
 
         var viewer, naviViewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
-        var currentArtIndex = 0;
-        var isAutoCycle = false;
+        var currentArtIndex = 0, isAutoCycle = false;
         
-        // 用于伸涨的高度控制器
-        var baseNaviWidth = 0, baseNaviHeight = 0, naviScale = 1.0; 
+        // 核心伸涨控制组
+        var baseNaviWidth = 0, baseNaviHeight = 0;
+        var targetNaviScale = 1.0, currentNaviScale = 1.0; 
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -145,7 +141,7 @@
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
 
-            // 监听：鼠标悬停在导览图时，滚轮控制导览图缩放
+            // 完美分发：鼠标悬停在导览图时，放飞导览图
             window.addEventListener('wheel', function(e) {
                 const naviContainer = document.getElementById('navi-container');
                 if (naviContainer && naviContainer.contains(e.target)) {
@@ -158,7 +154,6 @@
                 }
             }, { capture: true, passive: false });
 
-            // 监听：安卓双指捏合缩放导览图
             let initialPinchDistance = null;
             window.addEventListener('touchstart', function(e) {
                 if(e.touches.length === 2) {
@@ -196,12 +191,28 @@
             currentArtIndex = index;
             let art = artworks[index];
             
-            if (animationRequest) cancelAnimationFrame(animationRequest);
+            // 1. 掐灭一切旧残影
+            if (animationRequest) { cancelAnimationFrame(animationRequest); animationRequest = null; }
             
-            // 每次切换时重置高度状态
-            naviScale = 1.0;
+            // 2. 彻底毁灭旧引擎，绝不再犯“复用黑屏”的错
+            if (viewer) { viewer.destroy(); viewer = null; }
+            if (naviViewer) { naviViewer.destroy(); naviViewer = null; }
+
+            // 3. 掘地三尺重铸 DOM
+            document.getElementById('viewer').innerHTML = '';
+            document.getElementById('navi-outer').innerHTML = `
+                <div id="navi-container">
+                    <div id="navi-viewer"></div>
+                    <div id="navi-redbox"></div>
+                </div>
+            `;
+
+            // 4. 重置伸缩比例
+            targetNaviScale = 1.0;
+            currentNaviScale = 1.0;
+            window.naviBaseZoom = undefined; 
+
             let ratio = art.width / art.height;
-            
             baseNaviWidth = window.innerWidth;
             baseNaviHeight = baseNaviWidth / ratio;
 
@@ -230,88 +241,76 @@
                 finalTileSources = { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder };
             }
 
-            // ========================================================
-            // 【黑屏绝杀】：复用 WebGL 画布引擎，绝不销毁！
-            // ========================================================
-            if (!viewer) {
-                viewer = OpenSeadragon({
-                    id: "viewer",
-                    prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                    tileSources: finalTileSources, 
-                    canvasColor: '#221F1C',
-                    showNavigationControl: false,
-                    showNavigator: false, 
-                    gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
-                    visibilityRatio: 1.0, 
-                    constrainDuringPan: true,
-                    animationTime: 0.4,       
-                    zoomPerScroll: 1.1,       
-                    blendingTime: 0.1
-                });
+            viewer = OpenSeadragon({
+                id: "viewer",
+                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+                tileSources: finalTileSources, 
+                canvasColor: '#221F1C',
+                showNavigationControl: false,
+                showNavigator: false, 
+                gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
+                visibilityRatio: 1.0, 
+                constrainDuringPan: true,
+                animationTime: 0.4,       
+                zoomPerScroll: 1.1,       
+                blendingTime: 0.1
+            });
 
-                naviViewer = OpenSeadragon({
-                    id: "navi-viewer",
-                    prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                    tileSources: finalTileSources, 
-                    canvasColor: 'transparent',
-                    showNavigationControl: false,
-                    showNavigator: false,
-                    gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
-                    visibilityRatio: 1.0, 
-                    constrainDuringPan: true,
-                    animationTime: 0.2,       
-                    zoomPerScroll: 1.3,  
-                    blendingTime: 0.1
-                });
+            naviViewer = OpenSeadragon({
+                id: "navi-viewer",
+                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+                tileSources: finalTileSources, 
+                canvasColor: 'transparent',
+                showNavigationControl: false,
+                showNavigator: false,
+                gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
+                visibilityRatio: 1.0, 
+                constrainDuringPan: true,
+                animationTime: 0.2,       
+                zoomPerScroll: 1.3,  
+                blendingTime: 0.1
+            });
 
-                viewer.addHandler('canvas-click', function(event) {
-                    if (!event.quick) return; 
+            viewer.addHandler('canvas-click', function(event) {
+                if (!event.quick) return; 
+                event.preventDefaultAction = true; 
+                togglePlayState();
+            });
+
+            // 导览图点击跳转功能
+            naviViewer.addHandler('canvas-click', function(event) {
+                if (event.quick) {
                     event.preventDefaultAction = true; 
-                    togglePlayState();
-                });
+                    let pt = naviViewer.viewport.pointFromPixel(event.position);
+                    let currentY = viewer.viewport.getCenter().y;
+                    viewer.viewport.panTo(new OpenSeadragon.Point(pt.x, currentY));
+                }
+            });
 
-                naviViewer.addHandler('canvas-click', function(event) {
-                    if (event.quick) {
-                        event.preventDefaultAction = true; 
-                        let pt = naviViewer.viewport.pointFromPixel(event.position);
-                        let currentY = viewer.viewport.getCenter().y;
-                        viewer.viewport.panTo(new OpenSeadragon.Point(pt.x, currentY));
-                    }
-                });
-
-                viewer.addHandler('open', function() {
-                    document.getElementById('art-title').innerText = artworks[currentArtIndex].name;
-                    document.getElementById('full-desc').innerText = artworks[currentArtIndex].desc;
-                    document.getElementById('art-selector').value = currentArtIndex;
-                    applyInitialLayout();
-                    if (!animationRequest) startAnimationLoop();
-                });
-
-                viewer.addHandler('animation', syncRedBox);
-                naviViewer.addHandler('animation', syncRedBox);
-            } else {
-                // 如果已经存在，更新尺寸后直接 open (复用内存)
-                naviViewer.updateSize();
-                viewer.open(finalTileSources);
-                naviViewer.open(finalTileSources);
-            }
+            viewer.addHandler('open', function() {
+                document.getElementById('art-title').innerText = artworks[currentArtIndex].name;
+                document.getElementById('full-desc').innerText = artworks[currentArtIndex].desc;
+                document.getElementById('art-selector').value = currentArtIndex;
+                applyInitialLayout();
+                startAnimationLoop(); // 无条件开启引擎心跳
+            });
         }
 
         // ========================================================
-        // 【外科手术一：红框绝对贴合 + 导览镜头横向跟踪】
+        // 【核心红框贴合】
         // ========================================================
         function syncRedBox() {
             if (!viewer || !naviViewer || !viewer.viewport || !naviViewer.viewport) return;
             try {
-                // 1. 横向追踪：放大后让导览图的中心，横向跟着主画卷走，防飞出
+                // 横向同步：强制镜头的中心跟着主图走
                 let mainCenter = viewer.viewport.getCenter(true);
                 let naviHomeBounds = naviViewer.viewport.getHomeBounds();
                 if(naviHomeBounds) {
                     let naviCenterY = naviHomeBounds.getCenter().y;
-                    naviViewer.viewport.panTo(new OpenSeadragon.Point(mainCenter.x, naviCenterY), false); 
+                    naviViewer.viewport.panTo(new OpenSeadragon.Point(mainCenter.x, naviCenterY), true); 
                 }
 
-                // 2. 绘制绝对贴合的红框
+                // 红框描绘
                 let bounds = viewer.viewport.getBounds(true);
                 let tl = naviViewer.viewport.pixelFromPoint(bounds.getTopLeft(), true);
                 let br = naviViewer.viewport.pixelFromPoint(bounds.getBottomRight(), true);
@@ -320,8 +319,7 @@
                 if (box) {
                     box.style.left = tl.x + 'px';
                     box.style.width = (br.x - tl.x) + 'px';
-                    
-                    // 【红框物理死锁】：上下边永远严丝合缝，不留一丝黑边！
+                    // 物理死命令：上下贴边，再也不许漂移！
                     box.style.top = '0px';
                     box.style.height = '100%';
                 }
@@ -338,8 +336,11 @@
             let fitZoom = (container.y * 0.5 / container.x) / imgRatio; 
             let finalZoom = Math.min(nativeZoom, fitZoom);
             viewer.viewport.zoomTo(finalZoom, null, true);
+            
             if(naviViewer && naviViewer.viewport) {
                 naviViewer.viewport.goHome(true);
+                // 记住导览图的初始基准倍率，为后续精确放大做铺垫
+                window.naviBaseZoom = naviViewer.viewport.getHomeZoom();
             }
         }
 
@@ -348,34 +349,24 @@
             applyInitialLayout(); 
         }
 
-        // ========================================================
-        // 【外科手术二：解除高度封印，让画卷向上伸涨！】
-        // ========================================================
         function zoomNavi(delta) {
-            if (naviViewer && naviViewer.viewport) {
-                let currentZoom = naviViewer.viewport.getZoom();
-                let multiplier = delta > 0 ? 1.25 : (1/1.25);
-                
-                if (naviScale * multiplier < 1.0) multiplier = 1.0 / naviScale;
-                if (naviScale * multiplier > 15.0) multiplier = 15.0 / naviScale;
-                
-                naviScale *= multiplier;
-
-                // 修改物理高度，由于 flex-end 容器自动向上长！
-                const naviContainer = document.getElementById('navi-container');
-                if (naviContainer) {
-                    naviContainer.style.height = (baseNaviHeight * naviScale) + 'px';
-                }
-
-                // 唤醒 OSD 原生引擎填充拔高了的画框，解除黑边切割
-                naviViewer.updateSize();
-                naviViewer.viewport.zoomTo(currentZoom * multiplier, null, false);
-            }
+            let multiplier = delta > 0 ? 1.25 : (1/1.25);
+            let nextScale = targetNaviScale * multiplier;
+            
+            if (nextScale < 1.0) nextScale = 1.0;
+            if (nextScale > 15.0) nextScale = 15.0; // 放大上限
+            
+            targetNaviScale = nextScale;
         }
 
+        // ========================================================
+        // 【终极重组：JS 混合插值动画引擎】
+        // 彻底解决 OSD 异步裁切导致的“窄条”现象
+        // ========================================================
         function startAnimationLoop() {
             function step() {
                 if (viewer && viewer.viewport) {
+                    // --- 1. 处理主画卷的自动巡航 ---
                     let currentPos = viewer.viewport.getCenter();
                     let newX = currentPos.x;
 
@@ -390,7 +381,7 @@
                         if (newX > 1.1) newX = -0.1;
                     }
 
-                    // 68.0 版原汁原味：底边锚定控制台，顶端向上伸展
+                    // --- 2. 主画卷的物理堆叠（向上生长）---
                     let art = artworks[currentArtIndex];
                     let imgRatio = art.height / art.width;
                     let containerSize = viewer.viewport.getContainerSize();
@@ -404,7 +395,7 @@
                     let newY = imgRatio + offsetWorld - (targetVpHeight / 2);
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, newY), true);
 
-                    // 68.0 版原汁原味：导览图悬浮跟随主图上浮
+                    // --- 3. 导览图物理容器悬浮跟上 ---
                     let topPixel = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0), true);
                     const naviOuter = document.getElementById('navi-outer');
                     if (naviOuter) {
@@ -412,7 +403,23 @@
                         let bottomPos = window.innerHeight - topPixel.y + naviGap;
                         naviOuter.style.bottom = bottomPos + "px";
                     }
-                    
+
+                    // --- 4. 【核心】：高度与图像放大的 100% 帧同步 ---
+                    if (Math.abs(targetNaviScale - currentNaviScale) > 0.001) {
+                        // 利用缓动插值，实现丝滑长高
+                        currentNaviScale += (targetNaviScale - currentNaviScale) * 0.15;
+                        
+                        const naviContainer = document.getElementById('navi-container');
+                        if (naviContainer && naviViewer && naviViewer.viewport && window.naviBaseZoom) {
+                            // a) 盒子长高一毫米
+                            naviContainer.style.height = (baseNaviHeight * currentNaviScale) + 'px';
+                            // b) OSD 立刻感知新盒子
+                            naviViewer.updateSize();
+                            // c) 图像精准放大填充新盒子，杜绝切割！
+                            naviViewer.viewport.zoomTo(window.naviBaseZoom * currentNaviScale, null, true);
+                        }
+                    }
+
                     syncRedBox();
                 }
                 animationRequest = requestAnimationFrame(step);
@@ -447,16 +454,8 @@
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
                 
-                // 【收起画卷】：复原时把导览图的高度缩回原始极简窄条
-                naviScale = 1.0;
-                const naviContainer = document.getElementById('navi-container');
-                if(naviContainer) {
-                    naviContainer.style.height = baseNaviHeight + 'px';
-                }
-                if (naviViewer && naviViewer.viewport) {
-                    naviViewer.updateSize();
-                    naviViewer.viewport.goHome(true);
-                }
+                targetNaviScale = 1.0; 
+                // 由于有 JS 插值引擎，修改 targetNaviScale 会自动丝滑地缩小回去
             }
         }
 
