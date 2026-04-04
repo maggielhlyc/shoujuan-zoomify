@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.1 锚定生长方向版 (高级毛玻璃按键)</title>
+    <title>私人美术館 - 76.2 锚定生长方向版 (滚轮修复+毛玻璃按键)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -48,7 +48,6 @@
         #red-box {
             position: absolute;
             border: 2px solid rgba(255, 0, 0, 0.8);
-            /* 删除了周围的黑影，现在所有区域亮度完全统一 100%！ */
             pointer-events: none; 
             z-index: 10;
         }
@@ -167,6 +166,9 @@
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
 
+            // ========================================================
+            // 【您的原始修复代码：完整保留了 bottom-viewer 的滚轮缩放】
+            // ========================================================
             window.addEventListener('wheel', function(e) {
                 let multiplier = e.deltaY < 0 ? 1.08 : (1/1.08); 
                 if (document.getElementById('top-wrapper').contains(e.target)) {
@@ -176,6 +178,10 @@
                 } else if (document.getElementById('bottom-wrapper').contains(e.target)) {
                     if(isPlaying) return;
                     e.preventDefault(); e.stopImmediatePropagation();
+                    if (bottomViewer && bottomViewer.viewport) {
+                        let currentZoom = bottomViewer.viewport.getZoom();
+                        bottomViewer.viewport.zoomTo(currentZoom * multiplier);
+                    }
                 }
             }, { capture: true, passive: false });
         }
@@ -288,6 +294,9 @@
             topViewer.addHandler('animation', syncRedBox);
         }
 
+        // ========================================================
+        // 【您的原始修复代码：红框上沿锚定图像真实上沿，底边完全贴合】
+        // ========================================================
         function syncRedBox() {
             if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
             try {
@@ -304,6 +313,7 @@
                     
                     let topPos = Math.max(0, tl.y);
                     box.style.top = topPos + 'px';
+                    
                     box.style.height = (topWrapperHeight - topPos) + 'px';
                 }
             } catch(e) {}
