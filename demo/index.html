@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.1 锚定生长方向版 (红框定顶+透明按键)</title>
+    <title>私人美术館 - 76.1 锚定生长方向版 (高级毛玻璃按键)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -41,8 +41,6 @@
             flex-grow: 1; /* 自动填满剩余空间，直接铺到底部 */
             position: relative;
         }
-        
-        /* ！！已删除 bottom-gap，让画卷直接沉底！！ */
 
         .osd-viewer { width: 100%; height: 100%; }
 
@@ -70,11 +68,30 @@
         body.paused #control-bar { transform: translateY(0); }
         body.show-details #control-bar { bottom: 40vh; transform: translateY(0); background: transparent; }
         
-        /* 【修改点】：按键背景改为透明 */
-        .btn { padding: 1vh 1.8vh; background: transparent; color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 4px; cursor: pointer; font-size: 1.5vh; }
-        .btn:hover { background: var(--accent-color); color: #000; }
-        select { max-width: 35vw; background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.5vh; border-radius: 4px; outline: none;}
-        .btn.active-cycle { background: rgba(76,175,80,0.2); border-color: #4CAF50; color: #fff; box-shadow: 0 0 10px rgba(76,175,80,0.5); }
+        /* =========================================
+           【UI 升级】：高级毛玻璃与文字阴影特效按键
+           ========================================= */
+        .btn { 
+            padding: 1vh 1.8vh; 
+            background: rgba(20, 15, 10, 0.4); /* 极弱的深色托底，保留 60% 透明度 */
+            backdrop-filter: blur(4px); /* 苹果风格毛玻璃特效 */
+            -webkit-backdrop-filter: blur(4px); /* 兼容老设备 */
+            color: rgba(255, 245, 230, 0.95); /* 提亮文字颜色，偏纯白但带一点点暖色 */
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9); /* 核心：强烈的黑色文字阴影，保证在白纸背景上也能看清 */
+            border: 1px solid rgba(212, 160, 23, 0.4); /* 边框弱化，不喧宾夺主 */
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 1.5vh; 
+            transition: all 0.2s ease;
+        }
+        .btn:hover { 
+            background: var(--accent-color); 
+            color: #000; 
+            text-shadow: none; /* 鼠标悬停变亮时，取消阴影保持干净 */
+        }
+        
+        select { max-width: 35vw; background: rgba(20, 15, 10, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); color: var(--text-color); border: 1px solid rgba(212, 160, 23, 0.4); padding: 8px; font-size: 1.5vh; border-radius: 6px; outline: none; transition: all 0.2s ease;}
+        .btn.active-cycle { background: rgba(76,175,80,0.4); border-color: #4CAF50; color: #fff; box-shadow: 0 0 10px rgba(76,175,80,0.5); }
     </style>
 </head>
 <body>
@@ -89,7 +106,7 @@
     <div id="bottom-wrapper">
         <div id="bottom-viewer" class="osd-viewer"></div>
     </div>
-    
+
     <div id="header-zone"><div id="art-title">加载中...</div></div>
     
     <div id="control-bar">
@@ -105,7 +122,7 @@
         <button class="btn" onclick="resetView()">全景</button>
         <button id="info-btn" class="btn" onclick="toggleDetails(event)">作品志</button>
         <button id="fs-btn" class="btn" onclick="toggleFullscreen(event)">全屏</button>
-        <button class="btn" style="color:var(--accent-color); font-weight:bold;" onclick="togglePlayState()">继续</button>
+        <button class="btn" style="color:var(--accent-color); font-weight:bold; border-color:var(--accent-color);" onclick="togglePlayState()">继续</button>
     </div>
 
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
@@ -150,7 +167,6 @@
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
 
-            // 滚轮步进调小，更细腻
             window.addEventListener('wheel', function(e) {
                 let multiplier = e.deltaY < 0 ? 1.08 : (1/1.08); 
                 if (document.getElementById('top-wrapper').contains(e.target)) {
@@ -160,11 +176,6 @@
                 } else if (document.getElementById('bottom-wrapper').contains(e.target)) {
                     if(isPlaying) return;
                     e.preventDefault(); e.stopImmediatePropagation();
-                    // 这里补回下方图的鼠标滚轮缩放支持
-                    if (bottomViewer && bottomViewer.viewport) {
-                        let currentZoom = bottomViewer.viewport.getZoom();
-                        bottomViewer.viewport.zoomTo(currentZoom * multiplier);
-                    }
                 }
             }, { capture: true, passive: false });
         }
@@ -277,18 +288,13 @@
             topViewer.addHandler('animation', syncRedBox);
         }
 
-        // ========================================================
-        // 【修改点】：红框上沿锚定图像真实上沿，底边完全贴合
-        // ========================================================
         function syncRedBox() {
             if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
             try {
-                // 计算底层画卷对应的顶层视窗坐标
                 let bounds = bottomViewer.viewport.getBounds(true);
                 let tl = topViewer.viewport.pixelFromPoint(bounds.getTopLeft(), true);
                 let br = topViewer.viewport.pixelFromPoint(bounds.getBottomRight(), true);
                 
-                // 获取顶层画框容器的实际高度，确保红框不会越过底边
                 let topWrapperHeight = document.getElementById('top-wrapper').offsetHeight;
                 
                 let box = document.getElementById('red-box');
@@ -296,12 +302,8 @@
                     box.style.left = tl.x + 'px';
                     box.style.width = (br.x - tl.x) + 'px';
                     
-                    // 红框的顶部紧贴上方画卷的真实上沿 (tl.y)
-                    // 如果图像上沿超出了容器上方，限制它从 0 开始显示
                     let topPos = Math.max(0, tl.y);
                     box.style.top = topPos + 'px';
-                    
-                    // 红框的高度一直延伸到底部，严丝合缝
                     box.style.height = (topWrapperHeight - topPos) + 'px';
                 }
             } catch(e) {}
