@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.0 双引擎完美同步版 (亮度间距修正)</title>
+    <title>私人美术館 - 76.0 锚定生长方向版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -21,20 +21,20 @@
         body.paused { cursor: default; }
 
         /* =========================================
-           【顶层视窗】：承载上方 OSD 引擎
+           【顶层视窗】：承载上方 OSD 引擎（原导览图）
            ========================================= */
         #top-wrapper {
             width: 100%; 
-            height: 30vh; 
+            height: 30vh; /* 给予充足的高度，永不裁切！ */
             position: relative;
             flex-shrink: 0;
         }
         
-        /* 【修正 2】：强制锁定上下画框的绝对物理间距为 15px */
-        .gap { height: 15px; flex-shrink: 0; }
+        /* 【修正 2】：绝对锁死上下视窗的 10px 物理间距 */
+        .gap { height: 10px; flex-shrink: 0; }
 
         /* =========================================
-           【底层视窗】：承载下方 OSD 引擎
+           【底层视窗】：承载下方 OSD 引擎（主图）
            ========================================= */
         #bottom-wrapper {
             width: 100%; 
@@ -42,16 +42,16 @@
             position: relative;
         }
         
-        /* 底部与控制栏的等距小间隙 (避开绝对定位的菜单) */
+        /* 底部与控制栏的间隙 */
         .bottom-gap { height: 90px; flex-shrink: 0; } 
 
         .osd-viewer { width: 100%; height: 100%; }
 
-        /* 纯原生追踪红框 */
+        /* 原生追踪红框 */
         #red-box {
             position: absolute;
             border: 2px solid rgba(255, 0, 0, 0.8);
-            /* 【修正 1】：彻底删除了压暗背景的 box-shadow，全部恢复 100% 原生亮度！ */
+            /* 【修正 1】：删除了周围的黑影，现在所有区域亮度完全统一 100%！ */
             pointer-events: none; 
             z-index: 10;
         }
@@ -139,8 +139,7 @@
            { name: "05_清明上河图", width: 182108, height: 7595, folder: "tiles/05_qingmingshanghetu_song-huaxin/", desc: `文字三` }
         ];
 
-        // 引入双引擎
-        var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
+        var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true;
         var currentArtIndex = 0;
         var isAutoCycle = false;
 
@@ -163,7 +162,6 @@
             
             if (animationRequest) { cancelAnimationFrame(animationRequest); animationRequest = null; }
             
-            // 彻底毁灭，干净重生！
             if (bottomViewer) { bottomViewer.destroy(); bottomViewer = null; }
             if (topViewer) { topViewer.destroy(); topViewer = null; }
 
@@ -185,9 +183,6 @@
                 finalTileSources = { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder };
             }
 
-            // ========================================================
-            // 引擎 1：底层主图 (完全解锁原生滚动缩放！)
-            // ========================================================
             bottomViewer = OpenSeadragon({
                 id: "bottom-viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
@@ -203,9 +198,6 @@
                 blendingTime: 0.1
             });
 
-            // ========================================================
-            // 引擎 2：顶层导览图 (完全解锁原生滚动缩放！)
-            // ========================================================
             topViewer = OpenSeadragon({
                 id: "top-viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
@@ -221,7 +213,6 @@
                 blendingTime: 0.1
             });
 
-            // 交互事件
             bottomViewer.addHandler('canvas-click', function(event) {
                 if (!event.quick) return; 
                 event.preventDefaultAction = true; 
@@ -236,7 +227,6 @@
                 }
             });
 
-            // 【新增】：双向手动拖拽同步！
             let isSyncing = false;
             topViewer.addHandler('pan', function() {
                 if(isSyncing || isPlaying) return;
@@ -255,7 +245,6 @@
                 isSyncing = false;
             });
 
-            // 初始化保障机制
             let openCount = 0;
             function tryInit() {
                 openCount++;
@@ -271,14 +260,10 @@
             bottomViewer.addHandler('open', tryInit);
             topViewer.addHandler('open', tryInit);
 
-            // 监听双方动画，实时同步红框
             bottomViewer.addHandler('animation', syncRedBox);
             topViewer.addHandler('animation', syncRedBox);
         }
 
-        // ========================================================
-        // 【量子纠缠红框】：纯原生坐标计算，严丝合缝
-        // ========================================================
         function syncRedBox() {
             if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
             try {
@@ -290,7 +275,6 @@
                 if (box) {
                     box.style.left = tl.x + 'px';
                     box.style.width = (br.x - tl.x) + 'px';
-                    // 精确吸附：红框上下沿永远贴合图像的物理上下沿！
                     box.style.top = tl.y + 'px';
                     box.style.height = (br.y - tl.y) + 'px';
                 }
@@ -300,14 +284,12 @@
         function applyInitialLayout() {
             let art = artworks[currentArtIndex];
             
-            // 铺设底层主图
             let bContainer = bottomViewer.viewport.getContainerSize();
             let bNativeZoom = (art.width / (window.devicePixelRatio || 1)) / bContainer.x;
             let imgRatio = art.height / art.width; 
             let bFitZoom = (bContainer.y * 0.9 / bContainer.x) / imgRatio; 
             bottomViewer.viewport.zoomTo(Math.min(bNativeZoom, bFitZoom), null, true);
             
-            // 铺设顶层全景
             if(topViewer && topViewer.viewport) {
                 topViewer.viewport.goHome(true);
             }
@@ -318,9 +300,6 @@
             applyInitialLayout(); 
         }
 
-        // ========================================================
-        // 按键缩放：直接调用引擎原生的金字塔变焦
-        // ========================================================
         function zoomTopViewer(multiplier) {
             if (topViewer && topViewer.viewport) {
                 let currentZoom = topViewer.viewport.getZoom();
@@ -329,16 +308,30 @@
         }
 
         // ========================================================
-        // 自动巡航系统（彻底解开 Y 轴死锁，并加入双向同步）
+        // 【核心修改点】：强制定向生长的 Y 轴锚定器！
         // ========================================================
         function startAnimationLoop() {
             function step() {
                 if (bottomViewer && topViewer && bottomViewer.viewport && topViewer.viewport) {
-                    let currentPos = bottomViewer.viewport.getCenter();
-                    let newX = currentPos.x;
+                    let art = artworks[currentArtIndex];
+                    let imgRatio = art.height / art.width;
+                    
+                    // --- 1. 计算下方主图的锚点：死锁顶部 0 的位置，强制【向下放大】 ---
+                    let bSize = bottomViewer.viewport.getContainerSize();
+                    let bZoom = bottomViewer.viewport.getZoom();
+                    let bVpHeight = (bSize.y / bSize.x) / bZoom;
+                    let bottomAnchorY = bVpHeight / 2; // Y轴顶部对齐
+
+                    // --- 2. 计算上方导览图的锚点：死锁底部 imgRatio 的位置，强制【向上放大】 ---
+                    let tSize = topViewer.viewport.getContainerSize();
+                    let tZoom = topViewer.viewport.getZoom();
+                    let tVpHeight = (tSize.y / tSize.x) / tZoom;
+                    let topAnchorY = imgRatio - (tVpHeight / 2); // Y轴底部对齐
 
                     if (isPlaying) {
-                        newX += scrollStep;
+                        let currentPos = bottomViewer.viewport.getCenter();
+                        let newX = currentPos.x + scrollStep;
+
                         let vpWidth = bottomViewer.viewport.getBounds().width;
                         let leftLimit = vpWidth / 2;
                         if (newX < leftLimit) {
@@ -347,9 +340,16 @@
                         }
                         if (newX > 1.1) newX = -0.1;
 
-                        // 【自动滚动时，上图和下图 X 轴绝对同步咬合前进！】
-                        bottomViewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
-                        topViewer.viewport.panTo(new OpenSeadragon.Point(newX, topViewer.viewport.getCenter().y), true);
+                        // 自动巡航时：X 轴前进，Y 轴死锁锚点！
+                        bottomViewer.viewport.panTo(new OpenSeadragon.Point(newX, bottomAnchorY), true);
+                        topViewer.viewport.panTo(new OpenSeadragon.Point(newX, topAnchorY), true);
+                    } else {
+                        // 暂停拖拽时：X 轴自由拖拽，Y 轴依然死锁锚点，永远贴边！
+                        let bX = bottomViewer.viewport.getCenter().x;
+                        bottomViewer.viewport.panTo(new OpenSeadragon.Point(bX, bottomAnchorY), true);
+                        
+                        let tX = topViewer.viewport.getCenter().x;
+                        topViewer.viewport.panTo(new OpenSeadragon.Point(tX, topAnchorY), true);
                     }
                     
                     syncRedBox();
