@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.1 锚定生长方向版 (取消底部垫片)</title>
+    <title>私人美术館 - 76.2 完美步进与红框死锁版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -41,8 +41,6 @@
             flex-grow: 1; /* 自动填满剩余空间，直接铺到底部 */
             position: relative;
         }
-        
-        /* ！！已删除 bottom-gap，让画卷直接沉底！！ */
 
         .osd-viewer { width: 100%; height: 100%; }
 
@@ -50,7 +48,7 @@
         #red-box {
             position: absolute;
             border: 2px solid rgba(255, 0, 0, 0.8);
-            /* 删除了周围的黑影，现在所有区域亮度完全统一 100%！ */
+            /* 所有区域亮度完全统一 100% 通透！ */
             pointer-events: none; 
             z-index: 10;
         }
@@ -91,7 +89,7 @@
     <div id="bottom-wrapper">
         <div id="bottom-viewer" class="osd-viewer"></div>
     </div>
-    
+
     <div id="header-zone"><div id="art-title">加载中...</div></div>
     
     <div id="control-bar">
@@ -101,8 +99,8 @@
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
         
-        <button class="btn" style="background:#5a3f35;" onclick="zoomTopViewer(1/1.3)">导览-</button>
-        <button class="btn" style="background:#5a3f35;" onclick="zoomTopViewer(1.3)">导览+</button>
+        <button class="btn" style="background:#5a3f35;" onclick="triggerZoom('top', 1/1.1)">导览-</button>
+        <button class="btn" style="background:#5a3f35;" onclick="triggerZoom('top', 1.1)">导览+</button>
         
         <button class="btn" onclick="resetView()">全景</button>
         <button id="info-btn" class="btn" style="background:#4a3f35;" onclick="toggleDetails(event)">作品志</button>
@@ -139,6 +137,9 @@
         var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
         var currentArtIndex = 0;
         var isAutoCycle = false;
+        
+        var baseImageHeight = 0;
+        var currentTopScale = 1.0;
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -151,6 +152,54 @@
             });
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
+
+            // 滚轮事件分发
+            window.addEventListener('wheel', function(e) {
+                // 【微调 2】：调小滚轮步进系数，原 1.15 -> 现 1.08，缩放更细腻平稳
+                let multiplier = e.deltaY < 0 ? 1.08 : (1/1.08);
+                if (document.getElementById('top-wrapper').contains(e.target)) {
+                    if(isPlaying) return;
+                    e.preventDefault(); e.stopImmediatePropagation();
+                    triggerZoom('top', multiplier);
+                } else if (document.getElementById('bottom-wrapper').contains(e.target)) {
+                    if(isPlaying) return;
+                    e.preventDefault(); e.stopImmediatePropagation();
+                    triggerZoom('bottom', multiplier);
+                }
+            }, { capture: true, passive: false });
+
+            // 触摸缩放分发
+            let initialPinchDistance = null;
+            window.addEventListener('touchstart', function(e) {
+                if(e.touches.length === 2) {
+                    if (isPlaying) return;
+                    e.preventDefault(); e.stopImmediatePropagation();
+                    initialPinchDistance = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                }
+            }, { capture: true, passive: false });
+
+            window.addEventListener('touchmove', function(e) {
+                if(e.touches.length === 2 && initialPinchDistance !== null) {
+                    e.preventDefault(); e.stopImmediatePropagation();
+                    let currentDistance = Math.hypot(
+                        e.touches[0].pageX - e.touches[1].pageX,
+                        e.touches[0].pageY - e.touches[1].pageY
+                    );
+                    let multiplier = currentDistance / initialPinchDistance;
+                    
+                    if (document.getElementById('top-wrapper').contains(e.touches[0].target)) {
+                        triggerZoom('top', multiplier);
+                    } else {
+                        triggerZoom('bottom', multiplier);
+                    }
+                    initialPinchDistance = currentDistance; 
+                }
+            }, { capture: true, passive: false });
+
+            window.addEventListener('touchend', function(e) { initialPinchDistance = null; }, { capture: true, passive: false });
         }
 
         function loadArt(index) {
@@ -164,6 +213,13 @@
 
             document.getElementById('bottom-viewer').innerHTML = '';
             document.getElementById('top-viewer').innerHTML = '';
+
+            let ratio = art.width / art.height;
+            currentTopScale = 1.0;
+            
+            baseImageHeight = window.innerWidth / ratio;
+
+            document.getElementById('top-wrapper').style.height = baseImageHeight + 'px';
 
             let finalTileSources;
             if (Array.isArray(art.folder)) {
@@ -180,35 +236,18 @@
                 finalTileSources = { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder };
             }
 
-            bottomViewer = OpenSeadragon({
-                id: "bottom-viewer",
+            let osdConfig = {
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: finalTileSources, 
                 canvasColor: 'transparent',
-                showNavigationControl: false,
-                showNavigator: false, 
+                showNavigationControl: false, showNavigator: false, 
                 gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
-                visibilityRatio: 1.0, 
-                constrainDuringPan: true,
-                animationTime: 0.4,       
-                zoomPerScroll: 1.2,       
-                blendingTime: 0.1
-            });
+                visibilityRatio: 1.0, constrainDuringPan: true,
+                animationTime: 0.2, zoomPerScroll: 1.0, blendingTime: 0.1 
+            };
 
-            topViewer = OpenSeadragon({
-                id: "top-viewer",
-                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
-                tileSources: finalTileSources, 
-                canvasColor: 'transparent',
-                showNavigationControl: false,
-                showNavigator: false,
-                gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
-                visibilityRatio: 1.0, 
-                constrainDuringPan: true,
-                animationTime: 0.3,       
-                zoomPerScroll: 1.3,  
-                blendingTime: 0.1
-            });
+            bottomViewer = OpenSeadragon(Object.assign({}, osdConfig, {id: "bottom-viewer"}));
+            topViewer = OpenSeadragon(Object.assign({}, osdConfig, {id: "top-viewer"}));
 
             bottomViewer.addHandler('canvas-click', function(event) {
                 if (!event.quick) return; 
@@ -272,23 +311,25 @@
                 if (box) {
                     box.style.left = tl.x + 'px';
                     box.style.width = (br.x - tl.x) + 'px';
-                    box.style.top = tl.y + 'px';
-                    box.style.height = (br.y - tl.y) + 'px';
+                    
+                    // 【修正 1】：强行下达死命令！红框的高度和坐标严格死锁上方画框 100%
+                    box.style.top = '0px';
+                    box.style.height = '100%';
                 }
             } catch(e) {}
         }
 
         function applyInitialLayout() {
             let art = artworks[currentArtIndex];
+            let imgRatio = art.height / art.width; 
             
             let bContainer = bottomViewer.viewport.getContainerSize();
             let bNativeZoom = (art.width / (window.devicePixelRatio || 1)) / bContainer.x;
-            let imgRatio = art.height / art.width; 
             let bFitZoom = (bContainer.y * 0.9 / bContainer.x) / imgRatio; 
             bottomViewer.viewport.zoomTo(Math.min(bNativeZoom, bFitZoom), null, true);
             
             if(topViewer && topViewer.viewport) {
-                topViewer.viewport.goHome(true);
+                topViewer.viewport.zoomTo(1.0, null, true);
             }
         }
 
@@ -297,28 +338,52 @@
             applyInitialLayout(); 
         }
 
-        function zoomTopViewer(multiplier) {
-            if (topViewer && topViewer.viewport) {
-                let currentZoom = topViewer.viewport.getZoom();
-                topViewer.viewport.zoomTo(currentZoom * multiplier);
+        function triggerZoom(target, multiplier) {
+            let art = artworks[currentArtIndex];
+            let imgRatio = art.height / art.width;
+
+            if (target === 'top' && topViewer && topViewer.viewport) {
+                let newScale = currentTopScale * multiplier;
+                newScale = Math.max(1.0, Math.min(newScale, 15.0));
+                if (newScale !== currentTopScale) {
+                    currentTopScale = newScale;
+                    let wrapper = document.getElementById('top-wrapper');
+                    if (wrapper) wrapper.style.height = (baseImageHeight * currentTopScale) + 'px';
+                    topViewer.updateSize();
+                    
+                    // 锚定图像底部定点，强制向上生长
+                    let fixedPoint = new OpenSeadragon.Point(0.5, imgRatio);
+                    topViewer.viewport.zoomTo(currentTopScale, fixedPoint, true);
+                }
+            } else if (target === 'bottom' && bottomViewer && bottomViewer.viewport) {
+                let currentZoom = bottomViewer.viewport.getZoom();
+                let newZoom = currentZoom * multiplier;
+                // 锚定图像顶部定点，强制向下生长
+                let fixedPoint = new OpenSeadragon.Point(0.5, 0);
+                bottomViewer.viewport.zoomTo(newZoom, fixedPoint, false);
             }
         }
 
+        // ========================================================
+        // 定向生长锚定与巡航系统
+        // ========================================================
         function startAnimationLoop() {
             function step() {
                 if (bottomViewer && topViewer && bottomViewer.viewport && topViewer.viewport) {
                     let art = artworks[currentArtIndex];
                     let imgRatio = art.height / art.width;
                     
+                    // 1. 计算下方主图的锚点：死锁顶部 0 的位置
                     let bSize = bottomViewer.viewport.getContainerSize();
                     let bZoom = bottomViewer.viewport.getZoom();
                     let bVpHeight = (bSize.y / bSize.x) / bZoom;
-                    let bottomAnchorY = bVpHeight / 2;
+                    let bottomAnchorY = bVpHeight / 2; 
 
+                    // 2. 计算上方导览图的锚点：死锁底部 imgRatio 的位置
                     let tSize = topViewer.viewport.getContainerSize();
                     let tZoom = topViewer.viewport.getZoom();
                     let tVpHeight = (tSize.y / tSize.x) / tZoom;
-                    let topAnchorY = imgRatio - (tVpHeight / 2);
+                    let topAnchorY = imgRatio - (tVpHeight / 2); 
 
                     if (isPlaying) {
                         let currentPos = bottomViewer.viewport.getCenter();
@@ -372,6 +437,11 @@
 
         function resetView() {
             if (bottomViewer) {
+                currentTopScale = 1.0;
+                let wrapper = document.getElementById('top-wrapper');
+                if (wrapper) wrapper.style.height = baseImageHeight + 'px';
+                if(topViewer) topViewer.updateSize();
+
                 applyInitialLayout();
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
