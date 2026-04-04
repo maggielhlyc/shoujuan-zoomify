@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.2 完美步进与红框死锁版</title>
+    <title>私人美术館 - 76.3 绝对物理分界线版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -11,35 +11,46 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --bg-color: #221F1C; --accent-color: #d4a017; --panel-bg: rgba(30, 25, 20, 0.98); --text-color: rgba(230, 210, 180, 0.9); }
         
-        /* 完美的 Flexbox 垂直布局，构建坚如磐石的物理书桌 */
         html, body { 
             width: 100%; height: 100%; 
             background: var(--bg-color); overflow: hidden; 
             font-family: "STSong", "SimSun", serif; color: var(--text-color); cursor: none; 
-            display: flex; flex-direction: column;
         }
         body.paused { cursor: default; }
 
         /* =========================================
-           【顶层视窗】：承载上方 OSD 引擎（原导览图）
+           【绝对物理分界系统】：抛弃 Flex，用绝对定位死锁边界！
            ========================================= */
+        #gallery-container {
+            position: absolute;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none;
+        }
+
+        /* 顶层视窗：底边被死死锚定在屏幕 60% 的高度（即顶部往下 40% 的位置） */
         #top-wrapper {
-            width: 100%; 
-            height: 30vh; /* 给予充足的高度，永不裁切！ */
-            position: relative;
-            flex-shrink: 0;
+            position: absolute; 
+            bottom: 60vh; /* 死锁底边界！只能向上生长！ */
+            left: 0; width: 100%; 
+            height: 30vh; /* JS 会修改这个高度，它将往上伸展 */
+            pointer-events: auto;
         }
         
-        /* 绝对锁死上下视窗的 15px 物理间距 */
-        .gap { height: 15px; flex-shrink: 0; }
+        /* 永远固定的 15px 分界线间距 */
+        .gap { 
+            position: absolute;
+            top: 40vh; /* 刚好贴在 top-wrapper 的底边 */
+            left: 0; width: 100%; height: 15px; 
+            pointer-events: none;
+        }
 
-        /* =========================================
-           【底层视窗】：承载下方 OSD 引擎（主图）
-           ========================================= */
+        /* 底层视窗：顶边被死死锚定在分界线下方 15px 的位置 */
         #bottom-wrapper {
-            width: 100%; 
-            flex-grow: 1; /* 自动填满剩余空间，直接铺到底部 */
-            position: relative;
+            position: absolute; 
+            top: calc(40vh + 15px); /* 死锁顶边界！只能向下生长！ */
+            left: 0; width: 100%; 
+            height: 50vh; /* JS 会修改这个高度，它将往下伸展 */
+            pointer-events: auto;
         }
 
         .osd-viewer { width: 100%; height: 100%; }
@@ -48,7 +59,7 @@
         #red-box {
             position: absolute;
             border: 2px solid rgba(255, 0, 0, 0.8);
-            /* 所有区域亮度完全统一 100% 通透！ */
+            /* 【修正 1】：删除了 box-shadow，现在所有区域亮度完全统一 100%！ */
             pointer-events: none; 
             z-index: 10;
         }
@@ -79,15 +90,17 @@
 </head>
 <body>
 
-    <div id="top-wrapper">
-        <div id="top-viewer" class="osd-viewer"></div>
-        <div id="red-box"></div>
-    </div>
-    
-    <div class="gap"></div>
-    
-    <div id="bottom-wrapper">
-        <div id="bottom-viewer" class="osd-viewer"></div>
+    <div id="gallery-container">
+        <div id="top-wrapper">
+            <div id="top-viewer" class="osd-viewer"></div>
+            <div id="red-box"></div>
+        </div>
+        
+        <div class="gap"></div>
+        
+        <div id="bottom-wrapper">
+            <div id="bottom-viewer" class="osd-viewer"></div>
+        </div>
     </div>
 
     <div id="header-zone"><div id="art-title">加载中...</div></div>
@@ -134,12 +147,13 @@
            { name: "05_清明上河图", width: 182108, height: 7595, folder: "tiles/05_qingmingshanghetu_song-huaxin/", desc: `文字三` }
         ];
 
-        var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
+        var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true;
         var currentArtIndex = 0;
         var isAutoCycle = false;
         
         var baseImageHeight = 0;
         var currentTopScale = 1.0;
+        var currentBottomScale = 1.0;
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -155,8 +169,7 @@
 
             // 滚轮事件分发
             window.addEventListener('wheel', function(e) {
-                // 【微调 2】：调小滚轮步进系数，原 1.15 -> 现 1.08，缩放更细腻平稳
-                let multiplier = e.deltaY < 0 ? 1.08 : (1/1.08);
+                let multiplier = e.deltaY < 0 ? 1.08 : (1/1.08); // 细腻的步进
                 if (document.getElementById('top-wrapper').contains(e.target)) {
                     if(isPlaying) return;
                     e.preventDefault(); e.stopImmediatePropagation();
@@ -217,9 +230,15 @@
             let ratio = art.width / art.height;
             currentTopScale = 1.0;
             
+            // 基础画布高度（完美显示全宽图像的高度）
             baseImageHeight = window.innerWidth / ratio;
 
-            document.getElementById('top-wrapper').style.height = baseImageHeight + 'px';
+            // 给下图一个初始占屏幕 50% 的倍率
+            currentBottomScale = Math.max(1.0, (window.innerHeight * 0.5) / baseImageHeight);
+
+            // 设置容器的绝对物理高度
+            document.getElementById('top-wrapper').style.height = (baseImageHeight * currentTopScale) + 'px';
+            document.getElementById('bottom-wrapper').style.height = (baseImageHeight * currentBottomScale) + 'px';
 
             let finalTileSources;
             if (Array.isArray(art.folder)) {
@@ -263,6 +282,7 @@
                 }
             });
 
+            // 手动拖拽横向同步
             let isSyncing = false;
             topViewer.addHandler('pan', function() {
                 if(isSyncing || isPlaying) return;
@@ -300,6 +320,7 @@
             topViewer.addHandler('animation', syncRedBox);
         }
 
+        // 无论怎么算，红框必须与导览图上下边缘严丝合缝
         function syncRedBox() {
             if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
             try {
@@ -311,8 +332,7 @@
                 if (box) {
                     box.style.left = tl.x + 'px';
                     box.style.width = (br.x - tl.x) + 'px';
-                    
-                    // 【修正 1】：强行下达死命令！红框的高度和坐标严格死锁上方画框 100%
+                    // 永远锁定！
                     box.style.top = '0px';
                     box.style.height = '100%';
                 }
@@ -320,16 +340,9 @@
         }
 
         function applyInitialLayout() {
-            let art = artworks[currentArtIndex];
-            let imgRatio = art.height / art.width; 
-            
-            let bContainer = bottomViewer.viewport.getContainerSize();
-            let bNativeZoom = (art.width / (window.devicePixelRatio || 1)) / bContainer.x;
-            let bFitZoom = (bContainer.y * 0.9 / bContainer.x) / imgRatio; 
-            bottomViewer.viewport.zoomTo(Math.min(bNativeZoom, bFitZoom), null, true);
-            
+            bottomViewer.viewport.zoomTo(currentBottomScale, null, true);
             if(topViewer && topViewer.viewport) {
-                topViewer.viewport.zoomTo(1.0, null, true);
+                topViewer.viewport.zoomTo(currentTopScale, null, true);
             }
         }
 
@@ -338,6 +351,9 @@
             applyInitialLayout(); 
         }
 
+        // ========================================================
+        // 缩放控制器：动态改写高度，物理容器自动上下伸展
+        // ========================================================
         function triggerZoom(target, multiplier) {
             let art = artworks[currentArtIndex];
             let imgRatio = art.height / art.width;
@@ -347,25 +363,39 @@
                 newScale = Math.max(1.0, Math.min(newScale, 15.0));
                 if (newScale !== currentTopScale) {
                     currentTopScale = newScale;
+                    
+                    // 改写高度。由于 top-wrapper `bottom: 60vh` 固定，它绝对只能向上长！
                     let wrapper = document.getElementById('top-wrapper');
                     if (wrapper) wrapper.style.height = (baseImageHeight * currentTopScale) + 'px';
                     topViewer.updateSize();
                     
-                    // 锚定图像底部定点，强制向上生长
+                    // 锚定底层坐标图像底部定点，完美填充
                     let fixedPoint = new OpenSeadragon.Point(0.5, imgRatio);
                     topViewer.viewport.zoomTo(currentTopScale, fixedPoint, true);
                 }
             } else if (target === 'bottom' && bottomViewer && bottomViewer.viewport) {
-                let currentZoom = bottomViewer.viewport.getZoom();
-                let newZoom = currentZoom * multiplier;
-                // 锚定图像顶部定点，强制向下生长
-                let fixedPoint = new OpenSeadragon.Point(0.5, 0);
-                bottomViewer.viewport.zoomTo(newZoom, fixedPoint, false);
+                let newScale = currentBottomScale * multiplier;
+                newScale = Math.max(1.0, Math.min(newScale, 25.0));
+                if (newScale !== currentBottomScale) {
+                    currentBottomScale = newScale;
+                    
+                    // 改写高度。由于 bottom-wrapper `top: ...` 固定，它绝对只能向下长！
+                    let wrapper = document.getElementById('bottom-wrapper');
+                    if (wrapper) wrapper.style.height = (baseImageHeight * currentBottomScale) + 'px';
+                    bottomViewer.updateSize();
+                    
+                    let fixedPoint = new OpenSeadragon.Point(0.5, 0);
+                    bottomViewer.viewport.zoomTo(currentBottomScale, fixedPoint, true);
+                }
             }
         }
 
+        function zoomTopViewer(multiplier) {
+            triggerZoom('top', multiplier);
+        }
+
         // ========================================================
-        // 定向生长锚定与巡航系统
+        // Y 轴锚定器
         // ========================================================
         function startAnimationLoop() {
             function step() {
@@ -373,13 +403,13 @@
                     let art = artworks[currentArtIndex];
                     let imgRatio = art.height / art.width;
                     
-                    // 1. 计算下方主图的锚点：死锁顶部 0 的位置
+                    // 1. 下方主图锚点：永远吸附在画框最顶部！
                     let bSize = bottomViewer.viewport.getContainerSize();
                     let bZoom = bottomViewer.viewport.getZoom();
                     let bVpHeight = (bSize.y / bSize.x) / bZoom;
                     let bottomAnchorY = bVpHeight / 2; 
 
-                    // 2. 计算上方导览图的锚点：死锁底部 imgRatio 的位置
+                    // 2. 上方导览图锚点：永远吸附在画框最底部！
                     let tSize = topViewer.viewport.getContainerSize();
                     let tZoom = topViewer.viewport.getZoom();
                     let tVpHeight = (tSize.y / tSize.x) / tZoom;
@@ -400,6 +430,7 @@
                         bottomViewer.viewport.panTo(new OpenSeadragon.Point(newX, bottomAnchorY), true);
                         topViewer.viewport.panTo(new OpenSeadragon.Point(newX, topAnchorY), true);
                     } else {
+                        // 拖拽时：确保 Y 轴永远不脱离分界线！
                         let bX = bottomViewer.viewport.getCenter().x;
                         bottomViewer.viewport.panTo(new OpenSeadragon.Point(bX, bottomAnchorY), true);
                         
@@ -438,9 +469,14 @@
         function resetView() {
             if (bottomViewer) {
                 currentTopScale = 1.0;
-                let wrapper = document.getElementById('top-wrapper');
-                if (wrapper) wrapper.style.height = baseImageHeight + 'px';
+                let tWrapper = document.getElementById('top-wrapper');
+                if (tWrapper) tWrapper.style.height = baseImageHeight + 'px';
                 if(topViewer) topViewer.updateSize();
+
+                currentBottomScale = Math.max(1.0, (window.innerHeight * 0.5) / baseImageHeight);
+                let bWrapper = document.getElementById('bottom-wrapper');
+                if (bWrapper) bWrapper.style.height = (baseImageHeight * currentBottomScale) + 'px';
+                if(bottomViewer) bottomViewer.updateSize();
 
                 applyInitialLayout();
                 isPlaying = true;
