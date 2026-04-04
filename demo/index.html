@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.0 终极双视窗同步版</title>
+    <title>私人美术館 - 77.0 双视窗完美收官版</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -10,9 +10,13 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --bg-color: #221F1C; --accent-color: #d4a017; --panel-bg: rgba(30, 25, 20, 0.98); --text-color: rgba(230, 210, 180, 0.9); }
-        html, body { width: 100%; height: 100%; background: var(--bg-color); overflow: hidden; font-family: "STSong", "SimSun", serif; color: var(--text-color); cursor: none; }
         
-        #viewer { width: 100vw; height: 100vh; background: var(--bg-color); filter: contrast(1.05) sepia(0.04); }
+        /* 完美的 Flexbox 垂直布局，构建坚如磐石的物理书桌 */
+        html, body { 
+            width: 100%; height: 100%; 
+            background: var(--bg-color); overflow: hidden; 
+            font-family: "STSong", "SimSun", serif; color: var(--text-color); cursor: none; 
+        }
         body.paused { cursor: default; }
 
         /* ========================================================
@@ -140,14 +144,18 @@
            { name: "05_清明上河图", width: 182108, height: 7595, folder: "tiles/05_qingmingshanghetu_song-huaxin/", desc: `文字三` }
         ];
 
-        // 核心双视窗变量组
-        var topViewer, bottomViewer, animationRequest, scrollStep = -0.00003, isPlaying = true;
+        // 双引擎实例
+        var bottomViewer, topViewer; 
+        var animationRequest, scrollStep = -0.00003, isPlaying = true;
         var currentArtIndex = 0, isAutoCycle = false;
         
         // 动态高度生长的核心因子
         var baseImageHeight = 0;
         var targetTopScale = 1.0, currentTopScale = 1.0;
         var targetBottomScale = 1.0, currentBottomScale = 1.0;
+
+        // 【致命修复点】：用于确保双引擎都加载完毕的计数器
+        var openCount = 0;
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -161,9 +169,7 @@
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
 
-            // ========================================================
             // 【精准事件分发】：谁的场子谁接管滚轮和双指！
-            // ========================================================
             window.addEventListener('wheel', function(e) {
                 let multiplier = e.deltaY < 0 ? 1.15 : (1/1.15);
                 if (document.getElementById('top-wrapper').contains(e.target)) {
@@ -218,12 +224,15 @@
             
             if (animationRequest) { cancelAnimationFrame(animationRequest); animationRequest = null; }
             
-            // 毁灭重建大法，彻底告别黑屏串台
-            if (topViewer) { topViewer.destroy(); topViewer = null; }
+            // 彻底毁灭，干净重生！
             if (bottomViewer) { bottomViewer.destroy(); bottomViewer = null; }
+            if (topViewer) { topViewer.destroy(); topViewer = null; }
 
             document.getElementById('top-wrapper').innerHTML = '<div id="top-viewer" class="osd-viewer"></div><div id="red-box"></div>';
             document.getElementById('bottom-wrapper').innerHTML = '<div id="bottom-viewer" class="osd-viewer"></div>';
+
+            // 重置开启计数器
+            openCount = 0;
 
             // 计算该画作的真实基准高度 (1倍缩放时严丝合缝的高度)
             let ratio = art.width / art.height;
@@ -263,14 +272,37 @@
                 animationTime: 0.4, zoomPerScroll: 1.0, blendingTime: 0.1
             };
 
-            topViewer = OpenSeadragon(Object.assign({}, osdConfig, {id: "top-viewer"}));
+            // ========================================================
+            // 引擎 1：底层主图 (完全解锁原生滚动缩放！)
+            // ========================================================
             bottomViewer = OpenSeadragon(Object.assign({}, osdConfig, {id: "bottom-viewer"}));
+
+            // ========================================================
+            // 引擎 2：顶层导览图 (完全解锁原生滚动缩放！)
+            // ========================================================
+            topViewer = OpenSeadragon(Object.assign({}, osdConfig, {id: "top-viewer"}));
 
             // 背景点击暂停
             document.getElementById('gallery-stack').addEventListener('click', function(e) {
                 if(e.target.id === 'gallery-stack') togglePlayState();
             });
 
+            // 交互事件
+            bottomViewer.addHandler('canvas-click', function(event) {
+                if (!event.quick) return; 
+                event.preventDefaultAction = true; 
+                togglePlayState();
+            });
+
+            topViewer.addHandler('canvas-click', function(event) {
+                if (event.quick) {
+                    event.preventDefaultAction = true; 
+                    let pt = topViewer.viewport.pointFromPixel(event.position);
+                    bottomViewer.viewport.panTo(new OpenSeadragon.Point(pt.x, bottomViewer.viewport.getCenter().y));
+                }
+            });
+
+            // 【致命修复点】：绑定缺失的初始化启动函数
             topViewer.addHandler('open', initViewers);
             bottomViewer.addHandler('open', initViewers);
             
@@ -292,10 +324,12 @@
             });
         }
 
-        let openCount = 0;
+        // ========================================================
+        // 【致命修复点】：真正执行的初始化与循环启动器
+        // ========================================================
         function initViewers() {
             openCount++;
-            if(openCount < 2) return; 
+            if(openCount < 2) return; // 必须等上下两个引擎都准备就绪！
             openCount = 0;
 
             document.getElementById('art-title').innerText = artworks[currentArtIndex].name;
@@ -303,7 +337,29 @@
             document.getElementById('art-selector').value = currentArtIndex;
 
             applyInitialLayout();
-            startAnimationLoop();
+            if (!animationRequest) startAnimationLoop();
+        }
+
+        // ========================================================
+        // 【量子纠缠红框】：纯原生坐标计算，严丝合缝
+        // ========================================================
+        function syncRedBox() {
+            if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
+            try {
+                // 计算底层画卷的视野范围，并映射到顶层坐标系
+                let bounds = bottomViewer.viewport.getBounds(true);
+                let tl = topViewer.viewport.pixelFromPoint(bounds.getTopLeft(), true);
+                let br = topViewer.viewport.pixelFromPoint(bounds.getBottomRight(), true);
+                
+                let box = document.getElementById('red-box');
+                if (box) {
+                    box.style.left = tl.x + 'px';
+                    box.style.width = (br.x - tl.x) + 'px';
+                    // 精确吸附：红框上下沿永远贴合图像的物理上下沿！
+                    box.style.top = tl.y + 'px';
+                    box.style.height = (br.y - tl.y) + 'px';
+                }
+            } catch(e) {}
         }
 
         function applyInitialLayout() {
@@ -370,19 +426,8 @@
                         bottomViewer.viewport.zoomTo(currentBottomScale, null, true);
                     }
 
-                    // --- 3. 完美的红框吸附器 ---
-                    let bounds = bottomViewer.viewport.getBounds(true);
-                    let tl = topViewer.viewport.pixelFromPoint(bounds.getTopLeft(), true);
-                    let br = topViewer.viewport.pixelFromPoint(bounds.getBottomRight(), true);
-                    
-                    let box = document.getElementById('red-box');
-                    if (box) {
-                        box.style.left = tl.x + 'px';
-                        box.style.width = (br.x - tl.x) + 'px';
-                        // 下达死命令：红框的上下边，永远 100% 严丝合缝贴合上图的物理边沿！
-                        box.style.top = '0px';
-                        box.style.height = '100%';
-                    }
+                    // 实时同步红框
+                    syncRedBox();
                 }
                 animationRequest = requestAnimationFrame(step);
             }
