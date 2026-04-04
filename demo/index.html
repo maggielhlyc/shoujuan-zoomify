@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 68.0 无边框沉浸版</title>
+    <title>私人美术館 - 68.0 无边框沉浸版 (高度伸涨修复)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -22,7 +22,7 @@
             width: 100vw; 
             display: flex; 
             justify-content: center; 
-            align-items: flex-end; 
+            align-items: flex-end; /* 这个属性决定了高度增加时，必定向上伸涨 */
             z-index: 150; 
             pointer-events: none; 
             opacity: 1; 
@@ -34,6 +34,7 @@
             background: var(--bg-color); 
             pointer-events: auto; 
             touch-action: none; 
+            transition: height 0.2s ease-out; /* 让向上伸涨有一个丝滑的过渡 */
         }
         
         /* 二号 OSD 引擎安置处 */
@@ -43,7 +44,7 @@
         #navi-redbox {
             position: absolute;
             border: 2px solid rgba(255, 0, 0, 0.8);
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3); /* 圈外压暗，凸显红框视野 */
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3); 
             pointer-events: none; 
             z-index: 10;
         }
@@ -112,10 +113,6 @@
                 width: 395409, 
                 height: 7595, 
                 desc: `文字四`,
-                
-                // 【核心革新】：智能排版引擎。您不再需要写 `x` 坐标了！
-                // 代码会自动从数组的第一行开始，从左向右挨个排列拼接。
-                // ⚠️：如果现在的画面依然是反的，您只需要把这段 { ... part_j }, { ... part_i } 的行序上下颠倒过来即可！
                 folder: [
                     { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_a/" }, width: 50000 },
                     { tileSource: { type: 'zoomifytileservice', width: 50000, height: 7595, tilesUrl: "tiles/04_qingmingshanghetu_song/part_b/" }, width: 50000 },
@@ -130,15 +127,13 @@
                 ]
             },
            { name: "05_清明上河图", width: 182108, height: 7595, folder: "tiles/05_qingmingshanghetu_song-huaxin/", desc: `文字三` }
-
-
         ];
 
-
-        // 引入双引擎
+        // 【新增】：加入 baseNaviHeight 和 naviScale，用于控制伸涨！
         var viewer, naviViewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
         var currentArtIndex = 0;
         var isAutoCycle = false;
+        var baseNaviWidth = 0, baseNaviHeight = 0, naviScale = 1.0; 
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -158,10 +153,11 @@
             let art = artworks[index];
             
             if (animationRequest) cancelAnimationFrame(animationRequest);
-            
-            // 彻底销毁双引擎，确保黑屏不复发
             if (viewer) { viewer.destroy(); viewer = null; }
             if (naviViewer) { naviViewer.destroy(); naviViewer = null; }
+
+            // 恢复初始状态
+            naviScale = 1.0;
 
             document.getElementById('viewer').innerHTML = '';
             document.getElementById('navi-outer').innerHTML = `
@@ -173,14 +169,13 @@
 
             let ratio = art.width / art.height;
             
-            // 【满血释放】：导览图物理容器直接拉满，100% 同宽于屏幕！
-            let baseNaviWidth = window.innerWidth;
-            let baseNaviHeight = baseNaviWidth / ratio;
+            baseNaviWidth = window.innerWidth;
+            baseNaviHeight = baseNaviWidth / ratio;
 
             let maxHeight = window.innerHeight * 0.15; 
             if (baseNaviHeight > maxHeight) {
                 baseNaviHeight = maxHeight;
-                baseNaviWidth = baseNaviHeight * ratio; // 如果过高，依然保持比例紧贴
+                baseNaviWidth = baseNaviHeight * ratio; 
             }
 
             const naviContainer = document.getElementById('navi-container');
@@ -202,9 +197,6 @@
                 finalTileSources = { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder };
             }
 
-            // ========================================================
-            // 【主画卷引擎】
-            // ========================================================
             viewer = OpenSeadragon({
                 id: "viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
@@ -220,9 +212,6 @@
                 blendingTime: 0.1
             });
 
-            // ========================================================
-            // 【纯血导览图引擎】
-            // ========================================================
             naviViewer = OpenSeadragon({
                 id: "navi-viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
@@ -266,7 +255,8 @@
         }
 
         // ========================================================
-        // 【量子纠缠红框】：通过双引擎矩阵坐标精准映射
+        // 【核心修改点1：红框绝对贴合】
+        // 斩断引擎计算误差，强制让红框上下边永远对齐导览图的上下边！
         // ========================================================
         function syncRedBox() {
             if (!viewer || !naviViewer || !viewer.viewport || !naviViewer.viewport) return;
@@ -278,9 +268,10 @@
                 let box = document.getElementById('navi-redbox');
                 if (box) {
                     box.style.left = tl.x + 'px';
-                    box.style.top = tl.y + 'px';
                     box.style.width = (br.x - tl.x) + 'px';
-                    box.style.height = (br.y - tl.y) + 'px';
+                    // 强行锁死 Y 轴：无论怎么放大，红框永远贴紧上下边沿！
+                    box.style.top = '0px';
+                    box.style.height = '100%';
                 }
             } catch(e) {}
         }
@@ -305,12 +296,29 @@
             applyInitialLayout(); 
         }
 
-        // 按钮调用原生的金字塔镜头变焦
+        // ========================================================
+        // 【核心修改点2：导览图向上伸涨】
+        // ========================================================
         function zoomNavi(delta) {
             if (naviViewer && naviViewer.viewport) {
+                let multiplier = delta > 0 ? 1.2 : (1/1.2);
+                
+                // 设置极限倍率范围
+                if (naviScale * multiplier < 1.0) multiplier = 1.0 / naviScale;
+                if (naviScale * multiplier > 15.0) multiplier = 15.0 / naviScale;
+                
+                naviScale *= multiplier;
+
+                // 1. 让外壳容器的高度随倍率真正增加（由于 flex-end，它会自动向上伸涨！）
+                const naviContainer = document.getElementById('navi-container');
+                naviContainer.style.height = (baseNaviHeight * naviScale) + 'px';
+
+                // 2. 告诉内部的 OSD 引擎：你的画框变高了！
+                naviViewer.updateSize();
+
+                // 3. 驱动底层画面放大，完美填满变高了的画框，解除黑边切割
                 let currentZoom = naviViewer.viewport.getZoom();
-                let multiplier = delta > 0 ? 1.5 : (1/1.5);
-                naviViewer.viewport.zoomTo(currentZoom * multiplier);
+                naviViewer.viewport.zoomTo(currentZoom * multiplier, null, true);
             }
         }
 
@@ -331,7 +339,6 @@
                         if (newX > 1.1) newX = -0.1;
                     }
 
-                    // 1. 【主图物理堆叠】：底边锚定控制台，顶端向上伸展
                     let art = artworks[currentArtIndex];
                     let imgRatio = art.height / art.width;
                     let containerSize = viewer.viewport.getContainerSize();
@@ -345,7 +352,16 @@
                     let newY = imgRatio + offsetWorld - (targetVpHeight / 2);
                     viewer.viewport.panTo(new OpenSeadragon.Point(newX, newY), true);
 
-                    // 2. 【导览图悬浮跟随】：获取主图屏幕顶端坐标，维持 15px 缝隙跟随上浮
+                    // ========================================================
+                    // 【核心补丁：横向画卷追踪】
+                    // 放大的导览图必须横向跟随主图，保证红框不飞出屏幕
+                    // ========================================================
+                    if (naviViewer && naviViewer.viewport) {
+                        let mainCenter = viewer.viewport.getCenter(true);
+                        let naviCenterY = naviViewer.viewport.getHomeBounds().getCenter().y;
+                        naviViewer.viewport.panTo(new OpenSeadragon.Point(mainCenter.x, naviCenterY), true);
+                    }
+
                     let topPixel = viewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0), true);
                     const naviOuter = document.getElementById('navi-outer');
                     if (naviOuter) {
@@ -387,6 +403,17 @@
                 applyInitialLayout();
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
+                
+                // 还原导览图倍率与高度
+                naviScale = 1.0;
+                const naviContainer = document.getElementById('navi-container');
+                if(naviContainer) {
+                    naviContainer.style.height = baseNaviHeight + 'px';
+                    if (naviViewer && naviViewer.viewport) {
+                        naviViewer.updateSize();
+                        naviViewer.viewport.goHome(true);
+                    }
+                }
             }
         }
 
