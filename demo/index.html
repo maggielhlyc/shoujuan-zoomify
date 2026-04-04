@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.2 修复下方缩放版</title>
+    <title>私人美术館 - 76.1 锚定生长方向版 (红框定顶+透明按键)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -11,6 +11,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --bg-color: #221F1C; --accent-color: #d4a017; --panel-bg: rgba(30, 25, 20, 0.98); --text-color: rgba(230, 210, 180, 0.9); }
         
+        /* 完美的 Flexbox 垂直布局，构建坚如磐石的物理书桌 */
         html, body { 
             width: 100%; height: 100%; 
             background: var(--bg-color); overflow: hidden; 
@@ -19,26 +20,37 @@
         }
         body.paused { cursor: default; }
 
+        /* =========================================
+           【顶层视窗】：承载上方 OSD 引擎（原导览图）
+           ========================================= */
         #top-wrapper {
             width: 100%; 
-            height: 30vh; 
+            height: 30vh; /* 给予充足的高度，永不裁切！ */
             position: relative;
             flex-shrink: 0;
         }
         
+        /* 绝对锁死上下视窗的 15px 物理间距 */
         .gap { height: 15px; flex-shrink: 0; }
 
+        /* =========================================
+           【底层视窗】：承载下方 OSD 引擎（主图）
+           ========================================= */
         #bottom-wrapper {
             width: 100%; 
-            flex-grow: 1; 
+            flex-grow: 1; /* 自动填满剩余空间，直接铺到底部 */
             position: relative;
         }
+        
+        /* ！！已删除 bottom-gap，让画卷直接沉底！！ */
 
         .osd-viewer { width: 100%; height: 100%; }
 
+        /* 原生追踪红框 */
         #red-box {
             position: absolute;
             border: 2px solid rgba(255, 0, 0, 0.8);
+            /* 删除了周围的黑影，现在所有区域亮度完全统一 100%！ */
             pointer-events: none; 
             z-index: 10;
         }
@@ -58,6 +70,7 @@
         body.paused #control-bar { transform: translateY(0); }
         body.show-details #control-bar { bottom: 40vh; transform: translateY(0); background: transparent; }
         
+        /* 【修改点】：按键背景改为透明 */
         .btn { padding: 1vh 1.8vh; background: transparent; color: var(--text-color); border: 1px solid var(--accent-color); border-radius: 4px; cursor: pointer; font-size: 1.5vh; }
         .btn:hover { background: var(--accent-color); color: #000; }
         select { max-width: 35vw; background: #1a1a1a; color: var(--text-color); border: 1px solid var(--accent-color); padding: 8px; font-size: 1.5vh; border-radius: 4px; outline: none;}
@@ -76,7 +89,7 @@
     <div id="bottom-wrapper">
         <div id="bottom-viewer" class="osd-viewer"></div>
     </div>
-
+    
     <div id="header-zone"><div id="art-title">加载中...</div></div>
     
     <div id="control-bar">
@@ -86,8 +99,8 @@
         <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
         <button class="btn" onclick="reverseDir()">调向</button>
         
-        <button class="btn" onclick="triggerZoom('top', 1/1.08)">导览-</button>
-        <button class="btn" onclick="triggerZoom('top', 1.08)">导览+</button>
+        <button class="btn" onclick="zoomTopViewer(1/1.08)">导览-</button>
+        <button class="btn" onclick="zoomTopViewer(1.08)">导览+</button>
         
         <button class="btn" onclick="resetView()">全景</button>
         <button id="info-btn" class="btn" onclick="toggleDetails(event)">作品志</button>
@@ -124,10 +137,6 @@
         var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true, centerY = 0;
         var currentArtIndex = 0;
         var isAutoCycle = false;
-        
-        var baseImageHeight = 0;
-        var currentTopScale = 1.0;
-        var currentBottomScale = 1.0; // 记录下方图的缩放比例
 
         function initGallery() {
             const selector = document.getElementById('art-selector');
@@ -141,54 +150,23 @@
             loadArt(0);
             window.addEventListener('resize', handleSmartResize);
 
-            // 滚轮事件分发
+            // 滚轮步进调小，更细腻
             window.addEventListener('wheel', function(e) {
                 let multiplier = e.deltaY < 0 ? 1.08 : (1/1.08); 
                 if (document.getElementById('top-wrapper').contains(e.target)) {
                     if(isPlaying) return;
                     e.preventDefault(); e.stopImmediatePropagation();
-                    triggerZoom('top', multiplier);
+                    zoomTopViewer(multiplier);
                 } else if (document.getElementById('bottom-wrapper').contains(e.target)) {
                     if(isPlaying) return;
                     e.preventDefault(); e.stopImmediatePropagation();
-                    // 【修复点】：补回下方图的缩放指令
-                    triggerZoom('bottom', multiplier);
-                }
-            }, { capture: true, passive: false });
-
-            // 触摸缩放分发
-            let initialPinchDistance = null;
-            window.addEventListener('touchstart', function(e) {
-                if(e.touches.length === 2) {
-                    if (isPlaying) return;
-                    e.preventDefault(); e.stopImmediatePropagation();
-                    initialPinchDistance = Math.hypot(
-                        e.touches[0].pageX - e.touches[1].pageX,
-                        e.touches[0].pageY - e.touches[1].pageY
-                    );
-                }
-            }, { capture: true, passive: false });
-
-            window.addEventListener('touchmove', function(e) {
-                if(e.touches.length === 2 && initialPinchDistance !== null) {
-                    e.preventDefault(); e.stopImmediatePropagation();
-                    let currentDistance = Math.hypot(
-                        e.touches[0].pageX - e.touches[1].pageX,
-                        e.touches[0].pageY - e.touches[1].pageY
-                    );
-                    let multiplier = currentDistance / initialPinchDistance;
-                    
-                    if (document.getElementById('top-wrapper').contains(e.touches[0].target)) {
-                        triggerZoom('top', multiplier);
-                    } else {
-                        // 【修复点】：补回下方图的缩放指令
-                        triggerZoom('bottom', multiplier);
+                    // 这里补回下方图的鼠标滚轮缩放支持
+                    if (bottomViewer && bottomViewer.viewport) {
+                        let currentZoom = bottomViewer.viewport.getZoom();
+                        bottomViewer.viewport.zoomTo(currentZoom * multiplier);
                     }
-                    initialPinchDistance = currentDistance; 
                 }
             }, { capture: true, passive: false });
-
-            window.addEventListener('touchend', function(e) { initialPinchDistance = null; }, { capture: true, passive: false });
         }
 
         function loadArt(index) {
@@ -202,17 +180,6 @@
 
             document.getElementById('bottom-viewer').innerHTML = '';
             document.getElementById('top-viewer').innerHTML = '';
-
-            let ratio = art.width / art.height;
-            currentTopScale = 1.0;
-            
-            baseImageHeight = window.innerWidth / ratio;
-            
-            // 下方图初始占比
-            currentBottomScale = Math.max(1.0, (window.innerHeight * 0.5) / baseImageHeight);
-
-            document.getElementById('top-wrapper').style.height = (baseImageHeight * currentTopScale) + 'px';
-            document.getElementById('bottom-wrapper').style.height = (baseImageHeight * currentBottomScale) + 'px';
 
             let finalTileSources;
             if (Array.isArray(art.folder)) {
@@ -229,18 +196,35 @@
                 finalTileSources = { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder };
             }
 
-            let osdConfig = {
+            bottomViewer = OpenSeadragon({
+                id: "bottom-viewer",
                 prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
                 tileSources: finalTileSources, 
                 canvasColor: 'transparent',
-                showNavigationControl: false, showNavigator: false, 
+                showNavigationControl: false,
+                showNavigator: false, 
                 gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
-                visibilityRatio: 1.0, constrainDuringPan: true,
-                animationTime: 0.2, zoomPerScroll: 1.0, blendingTime: 0.1 
-            };
+                visibilityRatio: 1.0, 
+                constrainDuringPan: true,
+                animationTime: 0.4,       
+                zoomPerScroll: 1.2,       
+                blendingTime: 0.1
+            });
 
-            bottomViewer = OpenSeadragon(Object.assign({}, osdConfig, {id: "bottom-viewer"}));
-            topViewer = OpenSeadragon(Object.assign({}, osdConfig, {id: "top-viewer"}));
+            topViewer = OpenSeadragon({
+                id: "top-viewer",
+                prefixUrl: "https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.0/images/",
+                tileSources: finalTileSources, 
+                canvasColor: 'transparent',
+                showNavigationControl: false,
+                showNavigator: false,
+                gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
+                visibilityRatio: 1.0, 
+                constrainDuringPan: true,
+                animationTime: 0.3,       
+                zoomPerScroll: 1.3,  
+                blendingTime: 0.1
+            });
 
             bottomViewer.addHandler('canvas-click', function(event) {
                 if (!event.quick) return; 
@@ -293,13 +277,18 @@
             topViewer.addHandler('animation', syncRedBox);
         }
 
+        // ========================================================
+        // 【修改点】：红框上沿锚定图像真实上沿，底边完全贴合
+        // ========================================================
         function syncRedBox() {
             if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
             try {
+                // 计算底层画卷对应的顶层视窗坐标
                 let bounds = bottomViewer.viewport.getBounds(true);
                 let tl = topViewer.viewport.pixelFromPoint(bounds.getTopLeft(), true);
                 let br = topViewer.viewport.pixelFromPoint(bounds.getBottomRight(), true);
                 
+                // 获取顶层画框容器的实际高度，确保红框不会越过底边
                 let topWrapperHeight = document.getElementById('top-wrapper').offsetHeight;
                 
                 let box = document.getElementById('red-box');
@@ -307,17 +296,28 @@
                     box.style.left = tl.x + 'px';
                     box.style.width = (br.x - tl.x) + 'px';
                     
+                    // 红框的顶部紧贴上方画卷的真实上沿 (tl.y)
+                    // 如果图像上沿超出了容器上方，限制它从 0 开始显示
                     let topPos = Math.max(0, tl.y);
                     box.style.top = topPos + 'px';
+                    
+                    // 红框的高度一直延伸到底部，严丝合缝
                     box.style.height = (topWrapperHeight - topPos) + 'px';
                 }
             } catch(e) {}
         }
 
         function applyInitialLayout() {
-            bottomViewer.viewport.zoomTo(currentBottomScale, null, true);
+            let art = artworks[currentArtIndex];
+            
+            let bContainer = bottomViewer.viewport.getContainerSize();
+            let bNativeZoom = (art.width / (window.devicePixelRatio || 1)) / bContainer.x;
+            let imgRatio = art.height / art.width; 
+            let bFitZoom = (bContainer.y * 0.9 / bContainer.x) / imgRatio; 
+            bottomViewer.viewport.zoomTo(Math.min(bNativeZoom, bFitZoom), null, true);
+            
             if(topViewer && topViewer.viewport) {
-                topViewer.viewport.zoomTo(currentTopScale, null, true);
+                topViewer.viewport.goHome(true);
             }
         }
 
@@ -326,39 +326,10 @@
             applyInitialLayout(); 
         }
 
-        // ========================================================
-        // 核心缩放控制器
-        // ========================================================
-        function triggerZoom(target, multiplier) {
-            let art = artworks[currentArtIndex];
-            let imgRatio = art.height / art.width;
-
-            if (target === 'top' && topViewer && topViewer.viewport) {
-                let newScale = currentTopScale * multiplier;
-                newScale = Math.max(1.0, Math.min(newScale, 15.0));
-                if (newScale !== currentTopScale) {
-                    currentTopScale = newScale;
-                    let wrapper = document.getElementById('top-wrapper');
-                    if (wrapper) wrapper.style.height = (baseImageHeight * currentTopScale) + 'px';
-                    topViewer.updateSize();
-                    
-                    let fixedPoint = new OpenSeadragon.Point(0.5, imgRatio);
-                    topViewer.viewport.zoomTo(currentTopScale, fixedPoint, true);
-                }
-            } else if (target === 'bottom' && bottomViewer && bottomViewer.viewport) {
-                let newScale = currentBottomScale * multiplier;
-                newScale = Math.max(1.0, Math.min(newScale, 25.0));
-                if (newScale !== currentBottomScale) {
-                    currentBottomScale = newScale;
-                    
-                    let wrapper = document.getElementById('bottom-wrapper');
-                    if (wrapper) wrapper.style.height = (baseImageHeight * currentBottomScale) + 'px';
-                    bottomViewer.updateSize();
-                    
-                    // 下图缩放时，锚点永远在顶部 0 的位置，向下生长
-                    let fixedPoint = new OpenSeadragon.Point(0.5, 0);
-                    bottomViewer.viewport.zoomTo(currentBottomScale, fixedPoint, true);
-                }
+        function zoomTopViewer(multiplier) {
+            if (topViewer && topViewer.viewport) {
+                let currentZoom = topViewer.viewport.getZoom();
+                topViewer.viewport.zoomTo(currentZoom * multiplier);
             }
         }
 
@@ -429,17 +400,7 @@
         }
 
         function resetView() {
-            if (bottomViewer && topViewer) {
-                currentTopScale = 1.0;
-                let tWrapper = document.getElementById('top-wrapper');
-                if (tWrapper) tWrapper.style.height = baseImageHeight + 'px';
-                if(topViewer) topViewer.updateSize();
-
-                currentBottomScale = Math.max(1.0, (window.innerHeight * 0.5) / baseImageHeight);
-                let bWrapper = document.getElementById('bottom-wrapper');
-                if (bWrapper) bWrapper.style.height = (baseImageHeight * currentBottomScale) + 'px';
-                if(bottomViewer) bottomViewer.updateSize();
-
+            if (bottomViewer) {
                 applyInitialLayout();
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
