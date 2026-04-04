@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.0 双引擎完美同步版</title>
+    <title>私人美术館 - 76.0 双引擎完美同步版 (亮度间距修正)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -21,20 +21,20 @@
         body.paused { cursor: default; }
 
         /* =========================================
-           【顶层视窗】：承载上方 OSD 引擎（原导览图）
+           【顶层视窗】：承载上方 OSD 引擎
            ========================================= */
         #top-wrapper {
             width: 100%; 
-            height: 30vh; /* 给予充足的高度，永不裁切！ */
+            height: 30vh; 
             position: relative;
             flex-shrink: 0;
         }
         
-        /* 上下视窗的等距小间隙 */
-        .gap { height: 12px; flex-shrink: 0; }
+        /* 【修正 2】：强制锁定上下画框的绝对物理间距为 15px */
+        .gap { height: 15px; flex-shrink: 0; }
 
         /* =========================================
-           【底层视窗】：承载下方 OSD 引擎（主图）
+           【底层视窗】：承载下方 OSD 引擎
            ========================================= */
         #bottom-wrapper {
             width: 100%; 
@@ -42,7 +42,7 @@
             position: relative;
         }
         
-        /* 底部与控制栏的等距小间隙 */
+        /* 底部与控制栏的等距小间隙 (避开绝对定位的菜单) */
         .bottom-gap { height: 90px; flex-shrink: 0; } 
 
         .osd-viewer { width: 100%; height: 100%; }
@@ -51,7 +51,7 @@
         #red-box {
             position: absolute;
             border: 2px solid rgba(255, 0, 0, 0.8);
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.3);
+            /* 【修正 1】：彻底删除了压暗背景的 box-shadow，全部恢复 100% 原生亮度！ */
             pointer-events: none; 
             z-index: 10;
         }
@@ -347,7 +347,7 @@
                         }
                         if (newX > 1.1) newX = -0.1;
 
-                        // 【新增】：自动滚动时，上图和下图 X 轴绝对同步咬合前进！
+                        // 【自动滚动时，上图和下图 X 轴绝对同步咬合前进！】
                         bottomViewer.viewport.panTo(new OpenSeadragon.Point(newX, currentPos.y), true);
                         topViewer.viewport.panTo(new OpenSeadragon.Point(newX, topViewer.viewport.getCenter().y), true);
                     }
