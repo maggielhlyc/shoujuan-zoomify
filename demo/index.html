@@ -291,7 +291,7 @@
                     box.style.left = tl.x + 'px';
                     box.style.width = (br.x - tl.x) + 'px';
                     
-                    // 红框的顶部不再是 0，而是紧贴上方画卷的真实上沿 (tl.y)
+                    // 红框的顶部紧贴上方画卷的真实上沿 (tl.y)
                     // 如果图像上沿超出了容器上方，限制它从 0 开始显示
                     let topPos = Math.max(0, tl.y);
                     box.style.top = topPos + 'px';
