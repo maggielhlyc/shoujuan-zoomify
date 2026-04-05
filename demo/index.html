@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.2 最终版 (作品志防漏边修复)</title>
+    <title>私人美术館 - 76.2 最终版 (作品志防漏边 + 本地记忆)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -41,8 +41,6 @@
             flex-grow: 1; /* 自动填满剩余空间，直接铺到底部 */
             position: relative;
         }
-        
-        /* ！！已删除 bottom-gap，让画卷直接沉底！！ */
 
         .osd-viewer { width: 100%; height: 100%; }
 
@@ -50,7 +48,6 @@
         #red-box {
             position: absolute;
             border: 2px solid rgba(255, 0, 0, 0.8);
-            /* 删除了周围的黑影，现在所有区域亮度完全统一 100%！ */
             pointer-events: none; 
             z-index: 10;
         }
@@ -75,12 +72,12 @@
            ========================================= */
         .btn { 
             padding: 1vh 1.8vh; 
-            background: rgba(20, 15, 10, 0.4); /* 极弱的深色托底，保留 60% 透明度 */
-            backdrop-filter: blur(4px); /* 苹果风格毛玻璃特效 */
-            -webkit-backdrop-filter: blur(4px); /* 兼容老设备 */
-            color: rgba(255, 245, 230, 0.95); /* 提亮文字颜色，偏纯白但带一点点暖色 */
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9); /* 核心：强烈的黑色文字阴影，保证在白纸背景上也能看清 */
-            border: 1px solid rgba(212, 160, 23, 0.4); /* 边框弱化，不喧宾夺主 */
+            background: rgba(20, 15, 10, 0.4); 
+            backdrop-filter: blur(4px); 
+            -webkit-backdrop-filter: blur(4px); 
+            color: rgba(255, 245, 230, 0.95); 
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9); 
+            border: 1px solid rgba(212, 160, 23, 0.4); 
             border-radius: 6px; 
             cursor: pointer; 
             font-size: 1.5vh; 
@@ -89,7 +86,7 @@
         .btn:hover { 
             background: var(--accent-color); 
             color: #000; 
-            text-shadow: none; /* 鼠标悬停变亮时，取消阴影保持干净 */
+            text-shadow: none; 
         }
         
         select { max-width: 35vw; background: rgba(20, 15, 10, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); color: var(--text-color); border: 1px solid rgba(212, 160, 23, 0.4); padding: 8px; font-size: 1.5vh; border-radius: 6px; outline: none; transition: all 0.2s ease;}
@@ -161,7 +158,49 @@
         var currentArtIndex = 0;
         var isAutoCycle = false;
 
+        // ========================================================
+        // 【新增：LocalStorage 记忆模块】
+        // ========================================================
+        var galleryMemory = {
+            currentArtIndex: 0,
+            isAutoCycle: false,
+            scrollStep: -0.00003,
+            artStates: {} // 记录每幅画的具体位置和缩放: { "0": { bx, bZoom, tx, tZoom }, ... }
+        };
+
+        function loadMemory() {
+            try {
+                let saved = localStorage.getItem('privateGalleryMemoryV76');
+                if (saved) {
+                    let parsed = JSON.parse(saved);
+                    // 合并数据，防止旧版本数据结构报错
+                    galleryMemory = { ...galleryMemory, ...parsed };
+                    currentArtIndex = galleryMemory.currentArtIndex !== undefined ? galleryMemory.currentArtIndex : 0;
+                    isAutoCycle = galleryMemory.isAutoCycle || false;
+                    scrollStep = galleryMemory.scrollStep || -0.00003;
+                }
+            } catch(e) { console.warn("读取记忆失败:", e); }
+        }
+
+        function saveMemory() {
+            if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
+            try {
+                galleryMemory.currentArtIndex = currentArtIndex;
+                galleryMemory.isAutoCycle = isAutoCycle;
+                galleryMemory.scrollStep = scrollStep;
+                galleryMemory.artStates[currentArtIndex] = {
+                    bx: bottomViewer.viewport.getCenter().x,
+                    bZoom: bottomViewer.viewport.getZoom(),
+                    tx: topViewer.viewport.getCenter().x,
+                    tZoom: topViewer.viewport.getZoom()
+                };
+                localStorage.setItem('privateGalleryMemoryV76', JSON.stringify(galleryMemory));
+            } catch(e) {}
+        }
+
         function initGallery() {
+            loadMemory(); // 初始化前先读取记忆
+
             const selector = document.getElementById('art-selector');
             selector.innerHTML = ""; 
             artworks.forEach((art, index) => {
@@ -170,8 +209,21 @@
                 opt.innerHTML = (index+1) + ". " + art.name.split('_').pop();
                 selector.appendChild(opt);
             });
-            loadArt(0);
+            
+            // 恢复按钮的 UI 状态
+            if (isAutoCycle) {
+                const btn = document.getElementById('cycle-btn');
+                btn.innerText = "自动轮播：开";
+                btn.classList.add('active-cycle');
+            }
+
+            loadArt(currentArtIndex); // 按照记忆加载上次看的画
             window.addEventListener('resize', handleSmartResize);
+
+            // 【新增：静默存档机制】每 1.5 秒保存一次，以及网页隐藏/关闭时保存
+            setInterval(saveMemory, 1500);
+            window.addEventListener('beforeunload', saveMemory);
+            document.addEventListener('visibilitychange', () => { if (document.hidden) saveMemory(); });
 
             // ========================================================
             // 【您的原始修复代码：完整保留了 bottom-viewer 的滚轮缩放】
@@ -230,8 +282,8 @@
                 gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
                 visibilityRatio: 1.0, 
                 constrainDuringPan: true,
-                animationTime: 0.4,       
-                zoomPerScroll: 1.2,       
+                animationTime: 0.4,        
+                zoomPerScroll: 1.2,        
                 blendingTime: 0.1
             });
 
@@ -245,7 +297,7 @@
                 gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
                 visibilityRatio: 1.0, 
                 constrainDuringPan: true,
-                animationTime: 0.3,       
+                animationTime: 0.3,        
                 zoomPerScroll: 1.3,  
                 blendingTime: 0.1
             });
@@ -289,7 +341,29 @@
                     document.getElementById('art-title').innerText = artworks[currentArtIndex].name;
                     document.getElementById('full-desc').innerText = artworks[currentArtIndex].desc;
                     document.getElementById('art-selector').value = currentArtIndex;
-                    applyInitialLayout();
+                    
+                    // 【新增：智能恢复视图】如果有当前画卷的记忆，精准还原进度
+                    let mem = galleryMemory.artStates[currentArtIndex];
+                    if (mem && mem.bZoom) {
+                        bottomViewer.viewport.zoomTo(mem.bZoom, null, true);
+                        topViewer.viewport.zoomTo(mem.tZoom, null, true);
+                        
+                        let art = artworks[currentArtIndex];
+                        let imgRatio = art.height / art.width;
+                        let bSize = bottomViewer.viewport.getContainerSize();
+                        let bVpHeight = (bSize.y / bSize.x) / mem.bZoom;
+                        let bottomAnchorY = bVpHeight / 2;
+
+                        let tSize = topViewer.viewport.getContainerSize();
+                        let tVpHeight = (tSize.y / tSize.x) / mem.tZoom;
+                        let topAnchorY = imgRatio - (tVpHeight / 2);
+
+                        bottomViewer.viewport.panTo(new OpenSeadragon.Point(mem.bx, bottomAnchorY), true);
+                        topViewer.viewport.panTo(new OpenSeadragon.Point(mem.tx, topAnchorY), true);
+                    } else {
+                        applyInitialLayout();
+                    }
+
                     startAnimationLoop();
                 }
             }
@@ -407,6 +481,7 @@
                 btn.innerText = "自动轮播：关";
                 btn.classList.remove('active-cycle');
             }
+            saveMemory(); // 状态改变立刻保存
         }
 
         function togglePlayState() {
@@ -416,6 +491,7 @@
             }
             isPlaying = !isPlaying;
             document.body.classList.toggle('paused', !isPlaying);
+            saveMemory(); // 暂停时顺便保存精确位置
         }
 
         function resetView() {
@@ -423,6 +499,12 @@
                 applyInitialLayout();
                 isPlaying = true;
                 document.body.classList.remove('paused', 'show-details');
+                
+                // 【新增】点击全景重置时，清空当前画卷的局部记忆，重新开始
+                if (galleryMemory.artStates[currentArtIndex]) {
+                    delete galleryMemory.artStates[currentArtIndex];
+                    saveMemory();
+                }
             }
         }
 
@@ -436,9 +518,25 @@
         }
 
         function toggleDetails(e) { e.stopPropagation(); document.body.classList.toggle('show-details'); }
-        function switchArt(val) { isPlaying = true; document.body.classList.remove('paused', 'show-details'); loadArt(parseInt(val)); }
-        function adjustSpeed(delta) { let dir = scrollStep > 0 ? 1 : -1; scrollStep = (Math.abs(scrollStep) + delta) * dir; scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; }
-        function reverseDir() { scrollStep = -scrollStep; }
+        
+        function switchArt(val) { 
+            saveMemory(); // 切画前先保存当前画的状态
+            isPlaying = true; 
+            document.body.classList.remove('paused', 'show-details'); 
+            loadArt(parseInt(val)); 
+        }
+        
+        function adjustSpeed(delta) { 
+            let dir = scrollStep > 0 ? 1 : -1; 
+            scrollStep = (Math.abs(scrollStep) + delta) * dir; 
+            scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; 
+            saveMemory(); // 速度改变立刻保存
+        }
+        
+        function reverseDir() { 
+            scrollStep = -scrollStep; 
+            saveMemory(); // 方向改变立刻保存
+        }
 
         if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('sw.js').catch(err=>{}); }); }
         window.onload = initGallery;
