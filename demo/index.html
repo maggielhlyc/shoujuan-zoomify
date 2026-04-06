@@ -231,7 +231,7 @@ hand scroll; ink and color on paper
                 if (saved) {
                     var parsed = JSON.parse(saved);
                     galleryMemory.currentArtIndex = parsed.currentArtIndex || 0;
-                    galleryMemory.isAutoCycle = parsed.isAutoCycle || false;
+                    galleryMemory.isAutoCycle = parsed.hasOwnProperty('isAutoCycle') ? parsed.isAutoCycle : true;
                     galleryMemory.scrollStep = parsed.scrollStep || -0.00003;
                     galleryMemory.artStates = parsed.artStates || {};
                     currentArtIndex = galleryMemory.currentArtIndex;
@@ -471,12 +471,13 @@ hand scroll; ink and color on paper
             }
         }
 
-        function handleSmartResize() { 
-            if (bottomViewer && bottomViewer.viewport) {
-                var bContainer = bottomViewer.viewport.getContainerSize();
-                if (bContainer.x > 0) applyInitialLayout(); 
-            }
-        }
+       function handleSmartResize() {
+if (bottomViewer && bottomViewer.viewport) {
+bottomViewer.forceRedraw();
+if(topViewer) topViewer.forceRedraw();
+syncRedBox();
+}
+}
         
         function zoomTopViewer(multiplier) { if (topViewer && topViewer.viewport) topViewer.viewport.zoomTo(topViewer.viewport.getZoom() * multiplier); }
 
