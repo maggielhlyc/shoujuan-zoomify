@@ -178,7 +178,7 @@
             document.addEventListener('visibilitychange', function() { if (document.hidden) saveMemory(); });
 
             window.addEventListener('wheel', function(e) {
-                var multiplier = e.deltaY < 0 ? 1.08 : (1/1.08); 
+                var multiplier = e.deltaY < 0 ? 1.03 : (1/1.03); 
                 if (document.getElementById('top-wrapper').contains(e.target)) {
                     if(isPlaying) return;
                     e.preventDefault(); e.stopImmediatePropagation();
