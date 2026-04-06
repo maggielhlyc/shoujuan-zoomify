@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.8 涅槃版 (修复点击遮挡 + 仅记比例)</title>
+    <title>私人美术館 - 76.10 智能追踪版 (柔性追踪+防边缘留白+仅记比例)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -24,6 +24,7 @@
         #bottom-wrapper { width: 100%; flex-grow: 1; position: relative; }
         
         .osd-viewer { width: 100%; height: 100%; }
+        .osd-viewer canvas { transform: translateZ(0); }
 
         #red-box { position: absolute; border: 2px solid rgba(255, 0, 0, 0.8); pointer-events: none; z-index: 10; }
 
@@ -181,6 +182,7 @@
             window.addEventListener('beforeunload', saveMemory);
             document.addEventListener('visibilitychange', function() { if (document.hidden) saveMemory(); });
 
+            // 【恢复全面缩放】：上下视窗均支持鼠标滚轮缩放
             window.addEventListener('wheel', function(e) {
                 var multiplier = e.deltaY < 0 ? 1.08 : (1/1.08); 
                 if (document.getElementById('top-wrapper').contains(e.target)) {
@@ -232,26 +234,31 @@
             bottomViewer = OpenSeadragon(bConfig);
             topViewer = OpenSeadragon(tConfig);
 
+            // 点击事件：暂停/播放
             bottomViewer.addHandler('canvas-click', function(event) {
                 if (!event.quick) return; event.preventDefaultAction = true; togglePlayState();
             });
             topViewer.addHandler('canvas-click', function(event) {
-                if (event.quick) {
-                    event.preventDefaultAction = true; 
-                    var pt = topViewer.viewport.pointFromPixel(event.position);
-                    bottomViewer.viewport.panTo(new OpenSeadragon.Point(pt.x, bottomViewer.viewport.getCenter().y));
-                }
+                if (!event.quick) return; event.preventDefaultAction = true; togglePlayState();
             });
 
             var isSyncing = false;
+            // 【柔性追踪核心】：当用户手动拖拽导览图时，主图精准跟随
             topViewer.addHandler('pan', function() {
                 if(isSyncing || isPlaying) return; isSyncing = true;
-                bottomViewer.viewport.panTo(new OpenSeadragon.Point(topViewer.viewport.getCenter().x, bottomViewer.viewport.getCenter().y), true);
+                var tx = topViewer.viewport.getCenter().x;
+                bottomViewer.viewport.panTo(new OpenSeadragon.Point(tx, bottomViewer.viewport.getCenter().y), true);
                 isSyncing = false;
             });
+            
+            // 【柔性追踪核心】：当用户手动拖拽主图时，导览图以防留白模式智能跟随
             bottomViewer.addHandler('pan', function() {
                 if(isSyncing || isPlaying) return; isSyncing = true;
-                topViewer.viewport.panTo(new OpenSeadragon.Point(bottomViewer.viewport.getCenter().x, topViewer.viewport.getCenter().y), true);
+                var bx = bottomViewer.viewport.getCenter().x;
+                var by = bottomViewer.viewport.getCenter().y;
+                var art = artworks[currentArtIndex];
+                var clampedTop = getClampedCenter(bx, by, topViewer, art.height/art.width);
+                topViewer.viewport.panTo(clampedTop, true);
                 isSyncing = false;
             });
 
@@ -260,38 +267,33 @@
                 openCount++;
                 if (openCount >= 2) {
                     var bContainer = bottomViewer.viewport.getContainerSize();
-                    
-                    // 电脑端秒开防御盾
-                    if (bContainer.x === 0 || bContainer.y === 0) {
-                        openCount--; 
-                        setTimeout(tryInit, 50); 
-                        return;
-                    }
+                    if (bContainer.x === 0 || bContainer.y === 0) { openCount--; setTimeout(tryInit, 50); return; }
 
                     document.getElementById('art-title').innerText = artworks[currentArtIndex].name;
                     document.getElementById('full-desc').innerText = artworks[currentArtIndex].desc;
                     document.getElementById('art-selector').value = currentArtIndex;
                     
                     var mem = galleryMemory.artStates[currentArtIndex];
-                    var startX = 1.05; // 每次强制从最右侧起跑
+                    var startX = 1.05; // 起跑线永远在最右侧
 
                     if (mem && mem.bZoom && mem.bZoom > 0) {
+                        // 恢复记忆的比例
                         bottomViewer.viewport.zoomTo(mem.bZoom, null, true);
                         topViewer.viewport.zoomTo(mem.tZoom, null, true);
                         
                         var bVpHeight = (bContainer.y / bContainer.x) / mem.bZoom;
-                        var tSize = topViewer.viewport.getContainerSize();
-                        var tVpHeight = (tSize.y / tSize.x) / mem.tZoom;
-                        
                         bottomViewer.viewport.panTo(new OpenSeadragon.Point(startX, bVpHeight / 2), true);
-                        topViewer.viewport.panTo(new OpenSeadragon.Point(startX, (art.height / art.width) - (tVpHeight / 2)), true);
+                        
+                        // 计算导览图的防留白安全坐标
+                        var imgRatio = artworks[currentArtIndex].height / artworks[currentArtIndex].width;
+                        var clampedTop = getClampedCenter(startX, imgRatio / 2, topViewer, imgRatio);
+                        topViewer.viewport.panTo(clampedTop, true);
                     } else {
                         applyInitialLayout();
                     }
 
                     startAnimationLoop();
 
-                    // 安卓 14 画屏唤醒补丁：极细微的边框变化，绝不破坏点击层级
                     setTimeout(function() {
                         document.body.style.borderTop = '1px solid rgba(0,0,0,0.01)';
                         if(bottomViewer) bottomViewer.forceRedraw();
@@ -307,31 +309,67 @@
             topViewer.addHandler('animation', syncRedBox);
         }
 
+        // ========================================================
+        // 【智能防留白算法】：自动探测导览图缩放边界，确保在任何倍数下都绝不露出黑色底底
+        // ========================================================
+        function getClampedCenter(targetX, targetY, viewer, imgRatio) {
+            var bounds = viewer.viewport.getBounds();
+            var vpWidth = bounds.width;
+            var vpHeight = bounds.height;
+
+            var cX, cY;
+            // 如果导览图被缩小到包含整张宽图，强行锁死中心 X=0.5，绝不随主图偏移而露出黑边
+            if (vpWidth >= 1.0) {
+                cX = 0.5;
+            } else {
+                // 如果导览图被放大了，允许跟随目标 X，但到达边缘前紧急刹车
+                cX = Math.max(vpWidth / 2, Math.min(1.0 - vpWidth / 2, targetX));
+            }
+
+            if (vpHeight >= imgRatio) {
+                cY = imgRatio / 2;
+            } else {
+                cY = Math.max(vpHeight / 2, Math.min(imgRatio - vpHeight / 2, targetY));
+            }
+
+            return new OpenSeadragon.Point(cX, cY);
+        }
+
+        // ========================================================
+        // 【精准红框光斑】：根据视窗映射，画出物理精确的红框
+        // ========================================================
         function syncRedBox() {
             if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
             try {
                 var bounds = bottomViewer.viewport.getBounds(true);
+                // 把主图的边界映射到导览图的当前屏幕像素点上
                 var tl = topViewer.viewport.pixelFromPoint(bounds.getTopLeft(), true);
                 var br = topViewer.viewport.pixelFromPoint(bounds.getBottomRight(), true);
                 var box = document.getElementById('red-box');
                 if (box) {
-                    box.style.left = tl.x + 'px'; box.style.width = (br.x - tl.x) + 'px';
-                    box.style.top = Math.max(0, tl.y) + 'px'; box.style.height = (document.getElementById('top-wrapper').offsetHeight - Math.max(0, tl.y)) + 'px';
+                    box.style.left = tl.x + 'px'; 
+                    box.style.width = (br.x - tl.x) + 'px';
+                    box.style.top = tl.y + 'px'; 
+                    box.style.height = (br.y - tl.y) + 'px';
                 }
             } catch(e) {}
         }
 
         function applyInitialLayout() {
             var art = artworks[currentArtIndex];
+            var imgRatio = art.height / art.width;
             var bContainer = bottomViewer.viewport.getContainerSize();
-            var targetZoom = Math.min((art.width / (window.devicePixelRatio || 1)) / bContainer.x, (bContainer.y * 0.9 / bContainer.x) / (art.height / art.width)); 
-            bottomViewer.viewport.zoomTo(targetZoom, null, true);
             
+            // 主图初始化计算
+            var bTargetZoom = Math.min((art.width / (window.devicePixelRatio || 1)) / bContainer.x, (bContainer.y * 0.9 / bContainer.x) / imgRatio); 
+            bottomViewer.viewport.zoomTo(bTargetZoom, null, true);
             bottomViewer.viewport.panTo(new OpenSeadragon.Point(1.05, 0), true);
             
+            // 导览图初始化计算
             if(topViewer && topViewer.viewport) {
                 topViewer.viewport.goHome(true);
-                topViewer.viewport.panTo(new OpenSeadragon.Point(1.05, 0), true);
+                var clampedTop = getClampedCenter(1.05, imgRatio / 2, topViewer, imgRatio);
+                topViewer.viewport.panTo(clampedTop, true);
             }
         }
 
@@ -349,13 +387,13 @@
                 if (bottomViewer && topViewer && bottomViewer.viewport && topViewer.viewport) {
                     var art = artworks[currentArtIndex];
                     var imgRatio = art.height / art.width;
-                    var bVpHeight = (bottomViewer.viewport.getContainerSize().y / bottomViewer.viewport.getContainerSize().x) / bottomViewer.viewport.getZoom();
-                    var tVpHeight = (topViewer.viewport.getContainerSize().y / topViewer.viewport.getContainerSize().x) / topViewer.viewport.getZoom();
                     
-                    var bottomAnchorY = bVpHeight / 2;
-                    var topAnchorY = imgRatio - (tVpHeight / 2);
-
                     if (isPlaying) {
+                        // 播放模式：锁定 Y 轴中心，X 轴自走
+                        var bVpHeight = (bottomViewer.viewport.getContainerSize().y / bottomViewer.viewport.getContainerSize().x) / bottomViewer.viewport.getZoom();
+                        var bottomAnchorY = bVpHeight / 2;
+                        var topAnchorY = imgRatio / 2;
+
                         var newX = bottomViewer.viewport.getCenter().x + scrollStep;
                         var leftLimit = bottomViewer.viewport.getBounds().width / 2;
                         
@@ -373,10 +411,13 @@
                         if (newX > 1.1) newX = -0.1;
 
                         bottomViewer.viewport.panTo(new OpenSeadragon.Point(newX, bottomAnchorY), true);
-                        topViewer.viewport.panTo(new OpenSeadragon.Point(newX, topAnchorY), true);
+                        
+                        // 导览图开启智能防留白追踪
+                        var clampedTop = getClampedCenter(newX, topAnchorY, topViewer, imgRatio);
+                        topViewer.viewport.panTo(clampedTop, true);
                     } else {
-                        bottomViewer.viewport.panTo(new OpenSeadragon.Point(bottomViewer.viewport.getCenter().x, bottomAnchorY), true);
-                        topViewer.viewport.panTo(new OpenSeadragon.Point(topViewer.viewport.getCenter().x, topAnchorY), true);
+                        // 【暂停模式：全域解禁】
+                        // 此时不强制做任何坐标归中，把天地还给用户，随便你在上下前后自由探索细节
                     }
                     syncRedBox();
                 }
