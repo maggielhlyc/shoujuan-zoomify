@@ -20,9 +20,9 @@
         body.paused { cursor: default; }
 
         /* 弃用弹性盒子，改为老式绝对定位，强行划分屏幕比例 */
-        #top-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 30%; }
+        #top-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 30%;overflow: hidden; }
         .gap { position: absolute; top: 30%; left: 0; width: 100%; height: 2%; }
-        #bottom-wrapper { position: absolute; top: 32%; left: 0; width: 100%; height: 68%; }
+        #bottom-wrapper { position: absolute; top: 32%; left: 0; width: 100%; height: 68%;overflow: hidden; }
         
         .osd-viewer { width: 100%; height: 100%; }
         .osd-viewer canvas { -webkit-transform: translateZ(0); transform: translateZ(0); }
@@ -398,6 +398,7 @@ var tConfig = JSON.parse(JSON.stringify(osdConfig)); tConfig.id = "top-viewer"; 
                     }
 
                     startAnimationLoop();
+                   setTimeout(function(){ if(!galleryMemory.artStates[currentArtIndex]) applyInitialLayout(); }, 800);
 
                     setTimeout(function() {
                         document.body.style.borderTop = '1px solid rgba(0,0,0,0.01)';
