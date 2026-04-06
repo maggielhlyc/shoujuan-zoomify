@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.10 智能追踪版 (柔性追踪+防边缘留白+仅记比例)</title>
+    <title>私人美术館 - 76.11 终极版 (点击导航 + 红框紧贴 + 柔性追踪)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -122,12 +122,7 @@
         var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true;
         var currentArtIndex = 0, isAutoCycle = false;
 
-        var galleryMemory = {
-            currentArtIndex: 0, 
-            isAutoCycle: false, 
-            scrollStep: -0.00003, 
-            artStates: {}
-        };
+        var galleryMemory = { currentArtIndex: 0, isAutoCycle: false, scrollStep: -0.00003, artStates: {} };
 
         function loadMemory() {
             try {
@@ -182,7 +177,6 @@
             window.addEventListener('beforeunload', saveMemory);
             document.addEventListener('visibilitychange', function() { if (document.hidden) saveMemory(); });
 
-            // 【恢复全面缩放】：上下视窗均支持鼠标滚轮缩放
             window.addEventListener('wheel', function(e) {
                 var multiplier = e.deltaY < 0 ? 1.08 : (1/1.08); 
                 if (document.getElementById('top-wrapper').contains(e.target)) {
@@ -234,16 +228,25 @@
             bottomViewer = OpenSeadragon(bConfig);
             topViewer = OpenSeadragon(tConfig);
 
-            // 点击事件：暂停/播放
+            // 点击主图：暂停/播放
             bottomViewer.addHandler('canvas-click', function(event) {
                 if (!event.quick) return; event.preventDefaultAction = true; togglePlayState();
             });
+            
+            // 【新增需求：点击导览图，指哪打哪】
             topViewer.addHandler('canvas-click', function(event) {
-                if (!event.quick) return; event.preventDefaultAction = true; togglePlayState();
+                if (!event.quick) return; 
+                event.preventDefaultAction = true; 
+                
+                // 将点击的屏幕像素位置转换为相对坐标
+                var pt = topViewer.viewport.pointFromPixel(event.position);
+                
+                // 让下方的主视图平滑横移到点击的位置
+                bottomViewer.viewport.panTo(new OpenSeadragon.Point(pt.x, bottomViewer.viewport.getCenter().y));
             });
 
             var isSyncing = false;
-            // 【柔性追踪核心】：当用户手动拖拽导览图时，主图精准跟随
+            // 导览图跟随主图联动
             topViewer.addHandler('pan', function() {
                 if(isSyncing || isPlaying) return; isSyncing = true;
                 var tx = topViewer.viewport.getCenter().x;
@@ -251,7 +254,7 @@
                 isSyncing = false;
             });
             
-            // 【柔性追踪核心】：当用户手动拖拽主图时，导览图以防留白模式智能跟随
+            // 主图跟随导览图联动
             bottomViewer.addHandler('pan', function() {
                 if(isSyncing || isPlaying) return; isSyncing = true;
                 var bx = bottomViewer.viewport.getCenter().x;
@@ -277,14 +280,12 @@
                     var startX = 1.05; // 起跑线永远在最右侧
 
                     if (mem && mem.bZoom && mem.bZoom > 0) {
-                        // 恢复记忆的比例
                         bottomViewer.viewport.zoomTo(mem.bZoom, null, true);
                         topViewer.viewport.zoomTo(mem.tZoom, null, true);
                         
                         var bVpHeight = (bContainer.y / bContainer.x) / mem.bZoom;
                         bottomViewer.viewport.panTo(new OpenSeadragon.Point(startX, bVpHeight / 2), true);
                         
-                        // 计算导览图的防留白安全坐标
                         var imgRatio = artworks[currentArtIndex].height / artworks[currentArtIndex].width;
                         var clampedTop = getClampedCenter(startX, imgRatio / 2, topViewer, imgRatio);
                         topViewer.viewport.panTo(clampedTop, true);
@@ -309,48 +310,46 @@
             topViewer.addHandler('animation', syncRedBox);
         }
 
-        // ========================================================
-        // 【智能防留白算法】：自动探测导览图缩放边界，确保在任何倍数下都绝不露出黑色底底
-        // ========================================================
         function getClampedCenter(targetX, targetY, viewer, imgRatio) {
             var bounds = viewer.viewport.getBounds();
             var vpWidth = bounds.width;
             var vpHeight = bounds.height;
 
             var cX, cY;
-            // 如果导览图被缩小到包含整张宽图，强行锁死中心 X=0.5，绝不随主图偏移而露出黑边
-            if (vpWidth >= 1.0) {
-                cX = 0.5;
-            } else {
-                // 如果导览图被放大了，允许跟随目标 X，但到达边缘前紧急刹车
-                cX = Math.max(vpWidth / 2, Math.min(1.0 - vpWidth / 2, targetX));
-            }
-
-            if (vpHeight >= imgRatio) {
-                cY = imgRatio / 2;
-            } else {
-                cY = Math.max(vpHeight / 2, Math.min(imgRatio - vpHeight / 2, targetY));
-            }
+            if (vpWidth >= 1.0) { cX = 0.5; } else { cX = Math.max(vpWidth / 2, Math.min(1.0 - vpWidth / 2, targetX)); }
+            if (vpHeight >= imgRatio) { cY = imgRatio / 2; } else { cY = Math.max(vpHeight / 2, Math.min(imgRatio - vpHeight / 2, targetY)); }
 
             return new OpenSeadragon.Point(cX, cY);
         }
 
         // ========================================================
-        // 【精准红框光斑】：根据视窗映射，画出物理精确的红框
+        // 【新增需求：红框紧贴上下沿】
         // ========================================================
         function syncRedBox() {
             if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
             try {
+                // 获取主图当前的边界坐标 (X 轴)
                 var bounds = bottomViewer.viewport.getBounds(true);
-                // 把主图的边界映射到导览图的当前屏幕像素点上
                 var tl = topViewer.viewport.pixelFromPoint(bounds.getTopLeft(), true);
                 var br = topViewer.viewport.pixelFromPoint(bounds.getBottomRight(), true);
+                
                 var box = document.getElementById('red-box');
                 if (box) {
+                    // X 轴：跟随主图的左右边界
                     box.style.left = tl.x + 'px'; 
                     box.style.width = (br.x - tl.x) + 'px';
-                    box.style.top = tl.y + 'px'; 
-                    box.style.height = (br.y - tl.y) + 'px';
+                    
+                    // Y 轴：紧贴导览图图片的物理上下边缘
+                    var art = artworks[currentArtIndex];
+                    var imgRatio = art.height / art.width;
+                    
+                    // 计算图片坐标 (0,0) 和 (0,imgRatio) 在当前导览图中的精确像素位置
+                    var imgTopPixel = topViewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0), true);
+                    var imgBottomPixel = topViewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, imgRatio), true);
+                    
+                    // 赋值：红框的高度完全等于图片的实际显示高度，毫无缝隙
+                    box.style.top = imgTopPixel.y + 'px'; 
+                    box.style.height = (imgBottomPixel.y - imgTopPixel.y) + 'px';
                 }
             } catch(e) {}
         }
@@ -360,12 +359,10 @@
             var imgRatio = art.height / art.width;
             var bContainer = bottomViewer.viewport.getContainerSize();
             
-            // 主图初始化计算
             var bTargetZoom = Math.min((art.width / (window.devicePixelRatio || 1)) / bContainer.x, (bContainer.y * 0.9 / bContainer.x) / imgRatio); 
             bottomViewer.viewport.zoomTo(bTargetZoom, null, true);
             bottomViewer.viewport.panTo(new OpenSeadragon.Point(1.05, 0), true);
             
-            // 导览图初始化计算
             if(topViewer && topViewer.viewport) {
                 topViewer.viewport.goHome(true);
                 var clampedTop = getClampedCenter(1.05, imgRatio / 2, topViewer, imgRatio);
@@ -389,7 +386,6 @@
                     var imgRatio = art.height / art.width;
                     
                     if (isPlaying) {
-                        // 播放模式：锁定 Y 轴中心，X 轴自走
                         var bVpHeight = (bottomViewer.viewport.getContainerSize().y / bottomViewer.viewport.getContainerSize().x) / bottomViewer.viewport.getZoom();
                         var bottomAnchorY = bVpHeight / 2;
                         var topAnchorY = imgRatio / 2;
@@ -412,12 +408,8 @@
 
                         bottomViewer.viewport.panTo(new OpenSeadragon.Point(newX, bottomAnchorY), true);
                         
-                        // 导览图开启智能防留白追踪
                         var clampedTop = getClampedCenter(newX, topAnchorY, topViewer, imgRatio);
                         topViewer.viewport.panTo(clampedTop, true);
-                    } else {
-                        // 【暂停模式：全域解禁】
-                        // 此时不强制做任何坐标归中，把天地还给用户，随便你在上下前后自由探索细节
                     }
                     syncRedBox();
                 }
