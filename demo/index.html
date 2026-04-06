@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.7 破壁版 (双端黑屏绝杀 + 仅记比例)</title>
+    <title>私人美术館 - 76.8 涅槃版 (修复点击遮挡 + 仅记比例)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -24,9 +24,6 @@
         #bottom-wrapper { width: 100%; flex-grow: 1; position: relative; }
         
         .osd-viewer { width: 100%; height: 100%; }
-        
-        /* 【安卓 14 专属硬件加速激活】：强制把画布提权到独立的 GPU 渲染层，彻底防止假死 */
-        .osd-viewer canvas { transform: translateZ(0); }
 
         #red-box { position: absolute; border: 2px solid rgba(255, 0, 0, 0.8); pointer-events: none; z-index: 10; }
 
@@ -124,9 +121,6 @@
         var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true;
         var currentArtIndex = 0, isAutoCycle = false;
 
-        // ========================================================
-        // 【记忆保险箱】：更换全新密钥，清洗掉以前存的错误死机数据
-        // ========================================================
         var galleryMemory = {
             currentArtIndex: 0, 
             isAutoCycle: false, 
@@ -232,7 +226,6 @@
                 visibilityRatio: 1.0, constrainDuringPan: true, blendingTime: 0.1
             };
 
-            // 完全摒弃 ES6 展开符语法，确保全设备兼容
             var bConfig = Object.assign({}, osdConfig); bConfig.id = "bottom-viewer"; bConfig.animationTime = 0.4; bConfig.zoomPerScroll = 1.2;
             var tConfig = Object.assign({}, osdConfig); tConfig.id = "top-viewer"; tConfig.animationTime = 0.3; tConfig.zoomPerScroll = 1.3;
 
@@ -268,13 +261,10 @@
                 if (openCount >= 2) {
                     var bContainer = bottomViewer.viewport.getContainerSize();
                     
-                    // ========================================================
-                    // 【致命黑屏防御】：电脑端秒开防御盾
-                    // 如果 CSS 还没来得及渲染，容器宽度为 0，强行计算会导致 Infinity 死机。
-                    // ========================================================
+                    // 电脑端秒开防御盾
                     if (bContainer.x === 0 || bContainer.y === 0) {
-                        openCount--; // 退回计数
-                        setTimeout(tryInit, 50); // 乖乖等待 50 毫秒让浏览器画完排版
+                        openCount--; 
+                        setTimeout(tryInit, 50); 
                         return;
                     }
 
@@ -301,7 +291,7 @@
 
                     startAnimationLoop();
 
-                    // 【安卓 14 画屏唤醒补丁】：极其隐蔽的边框重绘，绝对不干涉内部坐标，彻底防止轮播假死
+                    // 安卓 14 画屏唤醒补丁：极细微的边框变化，绝不破坏点击层级
                     setTimeout(function() {
                         document.body.style.borderTop = '1px solid rgba(0,0,0,0.01)';
                         if(bottomViewer) bottomViewer.forceRedraw();
