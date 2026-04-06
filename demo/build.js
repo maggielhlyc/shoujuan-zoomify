@@ -6,29 +6,49 @@ let artworks = [];
 
 console.log('🤖 正在启动私人美术馆自动化排版引擎...');
 
-// 检查目录是否存在
 if (!fs.existsSync(tilesDir)) {
     console.error(`❌ 错误：找不到 ${tilesDir} 文件夹，请确认脚本放在 index.html 同级目录下。`);
     process.exit(1);
 }
 
-// 获取文件夹并按数字/字母自然排序
 const folders = fs.readdirSync(tilesDir).filter(f => fs.statSync(path.join(tilesDir, f)).isDirectory());
-
-// 核心排序：确保 01, 02, 10, 11 按人类理解的数字顺序排列
 folders.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
 
 folders.forEach((folder, idx) => {
     const artPath = path.join(tilesDir, folder);
     console.log(`读取第 ${idx + 1} 幅作品: ${folder}`);
     
-    let art = { name: folder, desc: '' };
+    let art = { desc: '' };
 
-    // 1. 读取 desc.txt (如果不存在则留空)
-    const descPath = path.join(artPath, 'desc.txt');
-    art.desc = fs.existsSync(descPath) ? fs.readFileSync(descPath, 'utf8').trim() : '暂无作品介绍';
+    // ==========================================
+    // 1. 读取中文显示名 (智能防御 Windows 后缀名陷阱)
+    // ==========================================
+    const titlePath1 = path.join(artPath, 'title.txt');
+    const titlePath2 = path.join(artPath, 'title.txt.txt'); // 防御由于隐藏后缀名导致的 .txt.txt
 
-    // 2. 判断单图还是多段 (寻找 part_ 文件夹)
+    if (fs.existsSync(titlePath1)) {
+        art.name = fs.readFileSync(titlePath1, 'utf8').trim();
+    } else if (fs.existsSync(titlePath2)) {
+        art.name = fs.readFileSync(titlePath2, 'utf8').trim();
+    } else {
+        art.name = folder; // 实在找不到，再用英文名垫底
+    }
+
+    // ==========================================
+    // 2. 读取 desc.txt (获取作品介绍)
+    // ==========================================
+    const descPath1 = path.join(artPath, 'desc.txt');
+    const descPath2 = path.join(artPath, 'desc.txt.txt');
+    
+    if (fs.existsSync(descPath1)) {
+        art.desc = fs.readFileSync(descPath1, 'utf8').trim();
+    } else if (fs.existsSync(descPath2)) {
+        art.desc = fs.readFileSync(descPath2, 'utf8').trim();
+    } else {
+        art.desc = '暂无作品介绍';
+    }
+
+    // 3. 判断单图还是多段 (寻找 part_ 文件夹)
     const subItems = fs.readdirSync(artPath).filter(f => fs.statSync(path.join(artPath, f)).isDirectory());
     const partFolders = subItems.filter(f => f.startsWith('part_')).sort();
 
@@ -67,7 +87,7 @@ folders.forEach((folder, idx) => {
     artworks.push(art);
 });
 
-// 3. 格式化输出 (自动转义特殊字符)
+// 4. 格式化输出 (自动转义特殊字符)
 let jsCode = `var artworks = [\n` + artworks.map(art => {
     const folderStr = Array.isArray(art.folder) 
         ? `[\n${art.folder.map(p => `                    { tileSource: ${JSON.stringify(p.tileSource)}, width: ${p.width} }`).join(',\n')}\n                ]`
