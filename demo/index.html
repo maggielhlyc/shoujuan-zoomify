@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.6 完美兼容版 (修复黑屏+记忆比例+右侧起跑)</title>
+    <title>私人美术館 - 76.7 破壁版 (双端黑屏绝杀 + 仅记比例)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -11,7 +11,6 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root { --bg-color: #221F1C; --accent-color: #d4a017; --panel-bg: rgba(30, 25, 20, 0.98); --text-color: rgba(230, 210, 180, 0.9); }
         
-        /* 完美的 Flexbox 垂直布局 */
         html, body { 
             width: 100%; height: 100%; 
             background: var(--bg-color); overflow: hidden; 
@@ -20,13 +19,15 @@
         }
         body.paused { cursor: default; }
 
-        /* 顶层与底层视窗 */
         #top-wrapper { width: 100%; height: 30vh; position: relative; flex-shrink: 0; }
         .gap { height: 15px; flex-shrink: 0; }
         #bottom-wrapper { width: 100%; flex-grow: 1; position: relative; }
+        
         .osd-viewer { width: 100%; height: 100%; }
+        
+        /* 【安卓 14 专属硬件加速激活】：强制把画布提权到独立的 GPU 渲染层，彻底防止假死 */
+        .osd-viewer canvas { transform: translateZ(0); }
 
-        /* 原生追踪红框 */
         #red-box { position: absolute; border: 2px solid rgba(255, 0, 0, 0.8); pointer-events: none; z-index: 10; }
 
         #header-zone { position: absolute; top: -25vh; left: 0; width: 100%; height: 15vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); transition: top 0.4s ease; z-index: 100; padding: 0 5vw; pointer-events: none; }
@@ -122,28 +123,29 @@
 
         var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true;
         var currentArtIndex = 0, isAutoCycle = false;
-        var ignoreResize = false; // 核心护盾：拦截假 Resize 事件，保护记忆
 
         // ========================================================
-        // 【修改：LocalStorage 记忆模块（只记忆缩放比例，绝对不记位置）】
+        // 【记忆保险箱】：更换全新密钥，清洗掉以前存的错误死机数据
         // ========================================================
         var galleryMemory = {
             currentArtIndex: 0, 
             isAutoCycle: false, 
             scrollStep: -0.00003, 
-            artStates: {} // 只记录: { "0": { bZoom, tZoom }, ... }
+            artStates: {}
         };
 
         function loadMemory() {
             try {
-                var saved = localStorage.getItem('privateGalleryMemory_Z_Only');
+                var saved = localStorage.getItem('privateGallery_V7');
                 if (saved) {
                     var parsed = JSON.parse(saved);
-                    // 摒弃 ES6 展开符，全面兼容老旧安卓系统
-                    galleryMemory = Object.assign({}, galleryMemory, parsed);
-                    currentArtIndex = galleryMemory.currentArtIndex !== undefined ? galleryMemory.currentArtIndex : 0;
-                    isAutoCycle = galleryMemory.isAutoCycle || false;
-                    scrollStep = galleryMemory.scrollStep || -0.00003;
+                    galleryMemory.currentArtIndex = parsed.currentArtIndex || 0;
+                    galleryMemory.isAutoCycle = parsed.isAutoCycle || false;
+                    galleryMemory.scrollStep = parsed.scrollStep || -0.00003;
+                    galleryMemory.artStates = parsed.artStates || {};
+                    currentArtIndex = galleryMemory.currentArtIndex;
+                    isAutoCycle = galleryMemory.isAutoCycle;
+                    scrollStep = galleryMemory.scrollStep;
                 }
             } catch(e) {}
         }
@@ -158,7 +160,7 @@
                     bZoom: bottomViewer.viewport.getZoom(),
                     tZoom: topViewer.viewport.getZoom()
                 };
-                localStorage.setItem('privateGalleryMemory_Z_Only', JSON.stringify(galleryMemory));
+                localStorage.setItem('privateGallery_V7', JSON.stringify(galleryMemory));
             } catch(e) {}
         }
 
@@ -230,9 +232,12 @@
                 visibilityRatio: 1.0, constrainDuringPan: true, blendingTime: 0.1
             };
 
-            // 摒弃 ES6 展开符，全面兼容老旧安卓 WebView
-            bottomViewer = OpenSeadragon(Object.assign({}, osdConfig, { id: "bottom-viewer", animationTime: 0.4, zoomPerScroll: 1.2 }));
-            topViewer = OpenSeadragon(Object.assign({}, osdConfig, { id: "top-viewer", animationTime: 0.3, zoomPerScroll: 1.3 }));
+            // 完全摒弃 ES6 展开符语法，确保全设备兼容
+            var bConfig = Object.assign({}, osdConfig); bConfig.id = "bottom-viewer"; bConfig.animationTime = 0.4; bConfig.zoomPerScroll = 1.2;
+            var tConfig = Object.assign({}, osdConfig); tConfig.id = "top-viewer"; tConfig.animationTime = 0.3; tConfig.zoomPerScroll = 1.3;
+
+            bottomViewer = OpenSeadragon(bConfig);
+            topViewer = OpenSeadragon(tConfig);
 
             bottomViewer.addHandler('canvas-click', function(event) {
                 if (!event.quick) return; event.preventDefaultAction = true; togglePlayState();
@@ -260,21 +265,33 @@
             var openCount = 0;
             function tryInit() {
                 openCount++;
-                if (openCount === 2) {
+                if (openCount >= 2) {
+                    var bContainer = bottomViewer.viewport.getContainerSize();
+                    
+                    // ========================================================
+                    // 【致命黑屏防御】：电脑端秒开防御盾
+                    // 如果 CSS 还没来得及渲染，容器宽度为 0，强行计算会导致 Infinity 死机。
+                    // ========================================================
+                    if (bContainer.x === 0 || bContainer.y === 0) {
+                        openCount--; // 退回计数
+                        setTimeout(tryInit, 50); // 乖乖等待 50 毫秒让浏览器画完排版
+                        return;
+                    }
+
                     document.getElementById('art-title').innerText = artworks[currentArtIndex].name;
                     document.getElementById('full-desc').innerText = artworks[currentArtIndex].desc;
                     document.getElementById('art-selector').value = currentArtIndex;
                     
                     var mem = galleryMemory.artStates[currentArtIndex];
-                    var startX = 1.05; // 无论有无记忆，永远从最右侧起跑
+                    var startX = 1.05; // 每次强制从最右侧起跑
 
-                    // 严密校验记忆数据的合法性，防止内存损坏导致的黑屏
-                    if (mem && mem.bZoom && !isNaN(mem.bZoom) && mem.bZoom > 0) {
+                    if (mem && mem.bZoom && mem.bZoom > 0) {
                         bottomViewer.viewport.zoomTo(mem.bZoom, null, true);
                         topViewer.viewport.zoomTo(mem.tZoom, null, true);
                         
-                        var bVpHeight = (bottomViewer.viewport.getContainerSize().y / bottomViewer.viewport.getContainerSize().x) / mem.bZoom;
-                        var tVpHeight = (topViewer.viewport.getContainerSize().y / topViewer.viewport.getContainerSize().x) / mem.tZoom;
+                        var bVpHeight = (bContainer.y / bContainer.x) / mem.bZoom;
+                        var tSize = topViewer.viewport.getContainerSize();
+                        var tVpHeight = (tSize.y / tSize.x) / mem.tZoom;
                         
                         bottomViewer.viewport.panTo(new OpenSeadragon.Point(startX, bVpHeight / 2), true);
                         topViewer.viewport.panTo(new OpenSeadragon.Point(startX, (art.height / art.width) - (tVpHeight / 2)), true);
@@ -284,24 +301,13 @@
 
                     startAnimationLoop();
 
-                    // ========================================================
-                    // 【终极兼容防假死补丁】：完美模拟“点地址栏”，100% 唤醒老旧显卡
-                    // ========================================================
-                    [100, 500, 1000].forEach(function(delay) {
-                        setTimeout(function() {
-                            ignoreResize = true; // 举起护盾：不要洗掉我的缩放记忆
-                            try { window.dispatchEvent(new Event('resize')); } 
-                            catch(e) { 
-                                var evt = document.createEvent('UIEvents'); 
-                                evt.initUIEvent('resize', true, false, window, 0); 
-                                window.dispatchEvent(evt); 
-                            }
-                            if(bottomViewer) bottomViewer.forceRedraw();
-                            if(topViewer) topViewer.forceRedraw();
-                            
-                            setTimeout(function() { ignoreResize = false; }, 100); // 放下护盾
-                        }, delay);
-                    });
+                    // 【安卓 14 画屏唤醒补丁】：极其隐蔽的边框重绘，绝对不干涉内部坐标，彻底防止轮播假死
+                    setTimeout(function() {
+                        document.body.style.borderTop = '1px solid rgba(0,0,0,0.01)';
+                        if(bottomViewer) bottomViewer.forceRedraw();
+                        if(topViewer) topViewer.forceRedraw();
+                        setTimeout(function() { document.body.style.borderTop = 'none'; }, 100);
+                    }, 500);
                 }
             }
 
@@ -339,10 +345,11 @@
             }
         }
 
-        // 收到模拟 Resize 时，因为有护盾，绝不重置画面
         function handleSmartResize() { 
-            if (ignoreResize) return; 
-            if (bottomViewer && bottomViewer.viewport) applyInitialLayout(); 
+            if (bottomViewer && bottomViewer.viewport) {
+                var bContainer = bottomViewer.viewport.getContainerSize();
+                if (bContainer.x > 0) applyInitialLayout(); 
+            }
         }
         
         function zoomTopViewer(multiplier) { if (topViewer && topViewer.viewport) topViewer.viewport.zoomTo(topViewer.viewport.getZoom() * multiplier); }
@@ -368,10 +375,10 @@
                                 setTimeout(function() {
                                     isPlaying = true;
                                     loadArt((currentArtIndex + 1) % artworks.length); 
-                                }, 500); // 留出 0.5 秒给画屏清空内存，防止崩溃
+                                }, 500); 
                                 return; 
                             } 
-                            else { newX = 1.1; } // 单图轮播到底后，重新回到最右侧
+                            else { newX = 1.1; } 
                         }
                         if (newX > 1.1) newX = -0.1;
 
@@ -415,4 +422,15 @@
         }
 
         function toggleDetails(e) { e.stopPropagation(); document.body.classList.toggle('show-details'); }
-        function
+        function switchArt(val) { saveMemory(); isPlaying = true; document.body.classList.remove('paused', 'show-details'); loadArt(parseInt(val)); }
+        function adjustSpeed(delta) { 
+            var dir = scrollStep > 0 ? 1 : -1; scrollStep = (Math.abs(scrollStep) + delta) * dir; 
+            scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; saveMemory(); 
+        }
+        function reverseDir() { scrollStep = -scrollStep; saveMemory(); }
+
+        if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
+        window.onload = initGallery;
+    </script>
+</body>
+</html>
