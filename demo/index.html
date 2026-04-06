@@ -418,7 +418,12 @@ hand scroll; ink and color on paper
 
             var cX, cY;
             if (vpWidth >= 1.0) { cX = 0.5; } else { cX = Math.max(vpWidth / 2, Math.min(1.0 - vpWidth / 2, targetX)); }
-            if (vpHeight >= imgRatio) { cY = imgRatio / 2; } else { cY = Math.max(vpHeight / 2, Math.min(imgRatio - vpHeight / 2, targetY)); }
+            
+            if (viewer.element.id === "top-viewer") {
+                cY = imgRatio - vpHeight / 2; // 给上面画作加的“物理锁”：永远紧贴底部
+            } else {
+                if (vpHeight >= imgRatio) { cY = imgRatio / 2; } else { cY = Math.max(vpHeight / 2, Math.min(imgRatio - vpHeight / 2, targetY)); }
+            }
 
             return new OpenSeadragon.Point(cX, cY);
         }
