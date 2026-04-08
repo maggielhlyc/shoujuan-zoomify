@@ -1,0 +1,114 @@
+var artworks = [
+            {
+                category: "近现代 - baixueshi",
+                name: "lijiangyuge",
+                width: 3561, height: 6330,
+                folder: "lz_tiles/jinxiandai/baixueshi/lijiangyuge/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "近现代 - chenchen",
+                name: "mao",
+                width: 1568, height: 5376,
+                folder: "lz_tiles/jinxiandai/chenchen/mao/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "近现代 - chenchen",
+                name: "zixiaoyao",
+                width: 3735, height: 3374,
+                folder: "lz_tiles/jinxiandai/chenchen/zixiaoyao/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "近现代 - huhanmin",
+                name: "lishuqiyan",
+                width: 2091, height: 5000,
+                folder: "lz_tiles/jinxiandai/huhanmin/lishuqiyan/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "近现代 - shenyizai",
+                name: "shoutaotu",
+                width: 2288, height: 9392,
+                folder: "lz_tiles/jinxiandai/shenyizai/shoutaotu/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "近现代 - wangzhen",
+                name: "hehua",
+                width: 1524, height: 2880,
+                folder: "lz_tiles/jinxiandai/wangzhen/hehua/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "近现代 - xiaoxuan",
+                name: "shanlinqiuyan",
+                width: 2690, height: 5000,
+                folder: "lz_tiles/jinxiandai/xiaoxuan/shanlinqiuyan/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "近现代 - xiejian",
+                name: "zhushigaoshi",
+                width: 707, height: 2880,
+                folder: "lz_tiles/jinxiandai/xiejian/zhushigaoshi/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "近现代 - xuxiaocun",
+                name: "baiyunshenchu",
+                width: 3216, height: 9120,
+                folder: "lz_tiles/jinxiandai/xuxiaocun/baiyunshenchu/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "近现代 - zhangzhaoxiang",
+                name: "huahuibaicai",
+                width: 1835, height: 2870,
+                folder: "lz_tiles/jinxiandai/zhangzhaoxiang/huahuibaicai/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "清代 - gaoqipei",
+                name: "luyanshuangya_hua",
+                width: 1232, height: 2043,
+                folder: "lz_tiles/qing/gaoqipei/luyanshuangya_hua/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "清代 - gaoqipei",
+                name: "luyanshuangya_zhou",
+                width: 1756, height: 3122,
+                folder: "lz_tiles/qing/gaoqipei/luyanshuangya_zhou/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "清代 - wuguxiang",
+                name: "shanshui",
+                width: 725, height: 2880,
+                folder: "lz_tiles/qing/wuguxiang/shanshui/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "清代 - wushixian",
+                name: "shanshui",
+                width: 1392, height: 2880,
+                folder: "lz_tiles/qing/wushixian/shanshui/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "清代 - zhuderun",
+                name: "qiushanyinjv",
+                width: 1819, height: 5000,
+                folder: "lz_tiles/qing/zhuderun/qiushanyinjv/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            },
+            {
+                category: "清代 - zhuderun",
+                name: "qiushnyinjv_huaxin",
+                width: 1819, height: 4064,
+                folder: "lz_tiles/qing/zhuderun/qiushnyinjv_huaxin/",
+                desc: `请在此输入这幅传世名作的背景与赏析...`
+            }
+        ];

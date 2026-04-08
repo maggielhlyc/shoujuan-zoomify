@@ -2,580 +2,91 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 76.11 终极版 (三级联动防弹版)</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <link rel="manifest" href="manifest.json">
-    <script src="openseadragon/openseadragon.min.js"></script>
+    <title>桐观 - 私人数字书画珍藏馆</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; background: #221F1C; overflow: hidden; font-family: "STSong", "SimSun", serif; color: #E6D2B4; cursor: none; }
-        body.paused { cursor: default; }
-
-        #top-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 32%; overflow: hidden; border-bottom: 1px solid #333; }
-        .gap { position: absolute; top: 32%; left: 0; width: 100%; height: 30px; background: transparent; }
-        #bottom-wrapper { position: absolute; top: 32%; margin-top: 30px; left: 0; width: 100%; bottom: 0; overflow: hidden; }
         
-        .osd-viewer { width: 100%; height: 100%; }
-        .osd-viewer canvas { -webkit-transform: translateZ(0); transform: translateZ(0); }
-
-        #red-box { position: absolute; border: 2px solid rgba(255, 0, 0, 0.8); pointer-events: none; z-index: 10; }
-
-        #header-zone { position: absolute; top: -25%; left: 0; width: 100%; height: 15%; text-align: center; background: rgba(0,0,0,0.6); transition: top 0.4s ease; z-index: 100; pointer-events: none; }
-        #header-zone:before { content: ''; display: inline-block; height: 100%; vertical-align: middle; }
-        #art-title { display: inline-block; vertical-align: middle; font-size: 24px; color: #d4a017; letter-spacing: 4px; font-weight: bold; }
-        body.paused #header-zone { top: 0; }
+        /* 强制覆盖任何可能隐藏鼠标的设定 */
+        body { 
+            background: #1a1514; 
+            color: #E6D2B4; 
+            font-family: "STSong", "SimSun", serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            overflow: hidden;
+            cursor: default !important; /* 🌟 强制显示正常鼠标 */
+        }
         
-        #control-bar { position: absolute; bottom: -150px; left: 0; width: 100%; padding: 15px; text-align: center; background: rgba(15,10,5,0.85); transition: bottom 0.4s ease; z-index: 200; }
-        body.paused #control-bar { bottom: 0; }
-        body.show-details #control-bar { bottom: 40%; background: transparent; }
+        h1 { 
+            font-size: 64px; 
+            color: #d4a017; 
+            letter-spacing: 30px; 
+            margin-bottom: 20px; 
+            margin-right: -30px; 
+            font-weight: normal; 
+            text-shadow: 0 0 25px rgba(212, 160, 23, 0.4);
+        }
         
-        .btn, select { display: inline-block; margin: 6px; padding: 8px 12px; background: rgba(20, 15, 10, 0.6); color: #FFF5E6; border: 1px solid rgba(212, 160, 23, 0.4); border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s ease; vertical-align: middle; }
-        .btn:hover { background: #d4a017; color: #000; }
-        .btn.active-cycle { background: rgba(76,175,80,0.6); border-color: #4CAF50; color: #fff; }
+        .subtitle {
+            color: #888; 
+            font-size: 16px; 
+            letter-spacing: 10px;
+            margin-bottom: 80px;
+            margin-right: -10px;
+        }
 
-        #details-panel { position: absolute; bottom: -100%; left: 5%; width: 90%; height: 40%; background: rgba(30, 25, 20, 0.98); border: 1px solid rgba(212, 160, 23, 0.3); border-bottom: none; border-radius: 20px 20px 0 0; padding: 30px; transition: bottom 0.5s ease; z-index: 205; overflow-y: auto; text-align: justify; line-height: 2.2; font-size: 18px; display: none; }
-        body.show-details #details-panel { bottom: 0; display: block; }
+        .door-container { 
+            display: flex; 
+            gap: 60px; 
+            z-index: 10; /* 确保门在最上层 */
+        }
+        
+        .door { 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 280px;
+            height: 80px;
+            border: 1px solid rgba(212, 160, 23, 0.5); 
+            color: #FFF5E6; 
+            text-decoration: none; 
+            font-size: 24px; 
+            letter-spacing: 4px;
+            transition: all 0.4s ease; 
+            background: rgba(30, 25, 20, 0.6); 
+            position: relative;
+            overflow: hidden;
+            cursor: pointer !important; /* 🌟 强制作指引手型 */
+        }
+        
+        .door::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(212, 160, 23, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .door:hover { 
+            background: rgba(212, 160, 23, 0.15); 
+            border-color: #d4a017;
+            box-shadow: 0 0 30px rgba(212, 160, 23, 0.2); 
+            transform: translateY(-5px);
+        }
+        
+        .door:hover::before { left: 100%; }
     </style>
 </head>
 <body>
 
-    <div id="top-wrapper"><div id="top-viewer" class="osd-viewer"></div><div id="red-box"></div></div>
-    <div class="gap"></div>
-    <div id="bottom-wrapper"><div id="bottom-viewer" class="osd-viewer"></div></div>
-
-    <div id="header-zone"><div id="art-title">加载中...</div></div>
+    <h1>桐 观</h1>
+    <p class="subtitle">私人数字书画珍藏馆</p>
     
-    <div id="control-bar">
-        <select id="sel-dynasty" onchange="updateAuthor()" style="max-width: 120px;"></select>
-        <select id="sel-author" onchange="updateArtwork()" style="max-width: 140px;"></select>
-        <select id="sel-artwork" onchange="switchArt(this.value)" style="max-width: 250px;"></select>
-        <button id="cycle-btn" class="btn" onclick="toggleAutoCycle()">自动轮播：关</button>
-        <button class="btn" onclick="adjustSpeed(-0.000005)">减速</button>
-        <button class="btn" onclick="adjustSpeed(0.000005)">加速</button>
-        <button class="btn" onclick="reverseDir()">调向</button>
-        <button class="btn" onclick="zoomTopViewer(1/1.08)">导览-</button>
-        <button class="btn" onclick="zoomTopViewer(1.08)">导览+</button>
-        <button class="btn" onclick="resetView()">全景</button>
-        <button id="info-btn" class="btn" onclick="toggleDetails(event)">作品志</button>
-        <button id="fs-btn" class="btn" onclick="toggleFullscreen(event)">全屏</button>
-        <button class="btn" style="color:var(--accent-color); font-weight:bold; border-color:var(--accent-color);" onclick="togglePlayState()">继续</button>
+    <div class="door-container">
+        <a href="sj_index.html" class="door">步 入 长 卷</a>
+        <a href="lz_index.html" class="door">仰 观 高 山</a>
     </div>
 
-    <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
-
-    <script>
-       var artworks = [
-            {
-                category: "近现代 - 现代 华拓",
-                name: "02_华拓 祁连山卷-全卷",
-                width: 12867, height: 832,
-                folder: "tiles/jinxiandai/huatuo/02_hua_tuo/",
-                desc: `作者华拓\n作者生卒b.1940\n形式手卷 设色纸本\n尺寸引首: 22.5 x 63 cm. 8 7/8 x 24 3/4 in. 约1.3平尺;画: 22.5 x 316 cm. 8 7/8 x 124 3/8 in. 约6.4平尺\n创作年代1987年作\n题识:一九八四年夏访青海，于祁连县得稿，八七年绘于南京，华拓并记。\n钤印:华拓\n宋文治（1919-1999）题签条：华拓祁连山长卷。文治。 钤印：文治\n宋文治题引首：祁连胜览。癸酉三月，题华拓弟山水卷。文治。 钤印：娄江宋灏、文治书印、九十年代`
-            },
-            {
-                category: "明 - 明 仇英",
-                name: "05_清明上河图（辽博）-仇英",
-                width: 171899, height: 4339,
-                folder: [
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":4339,"tilesUrl":"tiles/ming/qiuyin/05_qingmingshanghetu_qiuying/part_a/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":4339,"tilesUrl":"tiles/ming/qiuyin/05_qingmingshanghetu_qiuying/part_b/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":4339,"tilesUrl":"tiles/ming/qiuyin/05_qingmingshanghetu_qiuying/part_c/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":21899,"height":4339,"tilesUrl":"tiles/ming/qiuyin/05_qingmingshanghetu_qiuying/part_d/"}, width: 21899 }
-                ],
-                desc: `此长卷描绘的是明朝中期苏州繁荣的景象。`
-            },
-            {
-                category: "明 - 明 周之冕",
-                name: "06_明 周之冕 百花图",
-                width: 231405, height: 3778,
-                folder: [
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":3778,"tilesUrl":"tiles/ming/zhouzhimian/06_baihuatu/part_a/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":3778,"tilesUrl":"tiles/ming/zhouzhimian/06_baihuatu/part_b/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":16710,"height":3778,"tilesUrl":"tiles/ming/zhouzhimian/06_baihuatu/part_c/"}, width: 16710 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":3778,"tilesUrl":"tiles/ming/zhouzhimian/06_baihuatu/part_d/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":3778,"tilesUrl":"tiles/ming/zhouzhimian/06_baihuatu/part_e/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":14695,"height":3778,"tilesUrl":"tiles/ming/zhouzhimian/06_baihuatu/part_f/"}, width: 14695 }
-                ],
-                desc: `图绘四季盛开的花卉，花儿红艳，叶儿碧绿，虽为折枝画法，但仍显生机勃勃。`
-            },
-            {
-                category: "清 - 清 金楙",
-                name: "03_金楙 秋岩爽气卷",
-                width: 5546, height: 582,
-                folder: "tiles/qing/jinmao/03_jin_mao/",
-                desc: `作者：金楙［清］画。设色纸本。`
-            },
-            {
-                category: "清 - 清 张彤",
-                name: "01_张 同（清） 仿周之冕花卉卷",
-                width: 21119, height: 1146,
-                folder: "tiles/qing/zhangtong/01_zhang_tong/",
-                desc: `手卷 设色纸本`
-            },
-            {
-                category: "宋 - 南宋 法常（牧溪）",
-                name: "08_水墨画卷 南宋 法常（牧溪）",
-                width: 112427, height: 5587,
-                folder: "tiles/song/fachang/08_shuimoxiesheng_fachang/",
-                desc: `南宋牧溪 (传)故宫博物院`
-            },
-            {
-                category: "宋 - 北宋 王希孟",
-                name: "07_千里江山图 北宋 王希孟",
-                width: 150502, height: 6024,
-                folder: "tiles/song/wangximeng/07_qianlijiangshantu-wangximeng/",
-                desc: `绢本 长卷 青绿 51.5x1191.5 厘米`
-            },
-            {
-                category: "宋 - 北宋 张择端",
-                name: "04_清明上河图 北宋 张择端",
-                width: 395409, height: 7595,
-                folder: [
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_a/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_b/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":10492,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_c/"}, width: 10492 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_d/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_e/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":2863,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_f/"}, width: 2863 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_g/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":38778,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_h/"}, width: 38778 },
-                    { tileSource: {"type":"zoomifytileservice","width":50000,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_i/"}, width: 50000 },
-                    { tileSource: {"type":"zoomifytileservice","width":43276,"height":7595,"tilesUrl":"tiles/song/zhangzheduan/04_qingmingshanghetu_song/part_j/"}, width: 43276 }
-                ],
-                desc: `绢本 长卷 设色 24.8x528.7 厘米`
-            }
-        ];
-
-        var bottomViewer, topViewer, animationRequest, scrollStep = -0.00003, isPlaying = true;
-        var currentArtIndex = 0, isAutoCycle = false;
-        var galleryMemory = { currentArtIndex: 0, isAutoCycle: false, scrollStep: -0.00003, artStates: {} };
-
-        function loadMemory() {
-            try {
-                var saved = localStorage.getItem('privateGallery_V7');
-                if (saved) {
-                    var parsed = JSON.parse(saved);
-                    galleryMemory.currentArtIndex = parsed.currentArtIndex || 0;
-                    galleryMemory.isAutoCycle = parsed.hasOwnProperty('isAutoCycle') ? parsed.isAutoCycle : true;
-                    galleryMemory.scrollStep = parsed.scrollStep || -0.00003;
-                    galleryMemory.artStates = parsed.artStates || {};
-                    currentArtIndex = galleryMemory.currentArtIndex;
-                    isAutoCycle = galleryMemory.isAutoCycle;
-                    scrollStep = galleryMemory.scrollStep;
-                }
-            } catch(e) {}
-        }
-
-        function saveMemory() {
-            if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
-            try {
-                galleryMemory.currentArtIndex = currentArtIndex;
-                galleryMemory.isAutoCycle = isAutoCycle;
-                galleryMemory.scrollStep = scrollStep;
-                galleryMemory.artStates[currentArtIndex] = {
-                    bZoom: bottomViewer.viewport.getZoom(),
-                    tZoom: topViewer.viewport.getZoom()
-                };
-                localStorage.setItem('privateGallery_V7', JSON.stringify(galleryMemory));
-            } catch(e) {}
-        }
-
-        // ==========================================
-        // 三级联动菜单核心逻辑
-        // ==========================================
-        var catalogTree = {}; 
-
-        function updateAuthor(targetAuthor, targetArtIndex) {
-            var selDynasty = document.getElementById('sel-dynasty');
-            var selAuthor = document.getElementById('sel-author');
-            if (!selDynasty || !selAuthor) return; 
-
-            var dynasty = selDynasty.value;
-            var authors = catalogTree[dynasty];
-            if (!authors) return; 
-
-            selAuthor.innerHTML = '';
-            var firstAuthor = null;
-
-            for (var a in authors) {
-                if (!firstAuthor) firstAuthor = a;
-                var opt = document.createElement('option');
-                opt.value = a; opt.text = a;
-                selAuthor.appendChild(opt);
-            }
-
-            selAuthor.value = (targetAuthor && authors[targetAuthor]) ? targetAuthor : firstAuthor;
-            updateArtwork(targetArtIndex); 
-        }
-
-        function updateArtwork(targetArtIndex) {
-            var selDynasty = document.getElementById('sel-dynasty');
-            var selAuthor = document.getElementById('sel-author');
-            var selArtwork = document.getElementById('sel-artwork');
-            if (!selDynasty || !selAuthor || !selArtwork) return; 
-
-            var dynasty = selDynasty.value;
-            var author = selAuthor.value;
-            if (!catalogTree[dynasty] || !catalogTree[dynasty][author]) return; 
-
-            selArtwork.innerHTML = '';
-            var arts = catalogTree[dynasty][author];
-            var firstIndex = null;
-
-            arts.forEach(function(item) {
-                if (firstIndex === null) firstIndex = item.index;
-                var opt = document.createElement('option');
-                opt.value = item.index; opt.text = item.name;
-                selArtwork.appendChild(opt);
-            });
-
-            if (targetArtIndex !== undefined && targetArtIndex !== null) {
-                selArtwork.value = targetArtIndex; 
-            } else {
-                selArtwork.value = firstIndex;
-                switchArt(firstIndex); 
-            }
-        }
-
-        function initGallery() {
-            if (!artworks || artworks.length === 0) return;
-
-            loadMemory();
-            
-            // 防崩溃装甲：防止老记忆读取了不存在的新画作序号
-            if (currentArtIndex >= artworks.length || currentArtIndex < 0 || !artworks[currentArtIndex]) {
-                currentArtIndex = 0;
-            }
-            
-            catalogTree = {};
-            artworks.forEach(function(art, index) {
-                var parts = (art.category || "未分类").split(" - ");
-                var dynasty = parts[0] ? parts[0].trim() : "未分类";
-                var author = parts[1] ? parts[1].trim() : "其他作者";
-
-                if (!catalogTree[dynasty]) catalogTree[dynasty] = {};
-                if (!catalogTree[dynasty][author]) catalogTree[dynasty][author] = [];
-                catalogTree[dynasty][author].push({ index: index, name: art.name });
-            });
-
-            var selDynasty = document.getElementById('sel-dynasty');
-            if (!selDynasty) return;
-            selDynasty.innerHTML = '';
-            for (var d in catalogTree) {
-                var opt = document.createElement('option');
-                opt.value = d; opt.text = d;
-                selDynasty.appendChild(opt);
-            }
-
-            var currentArt = artworks[currentArtIndex];
-            var currParts = (currentArt.category || "未分类").split(" - ");
-            var currDynasty = currParts[0] ? currParts[0].trim() : "未分类";
-            var currAuthor = currParts[1] ? currParts[1].trim() : "其他作者";
-
-            selDynasty.value = currDynasty;
-            updateAuthor(currAuthor, currentArtIndex); 
-
-            if (isAutoCycle) {
-                var btn = document.getElementById('cycle-btn');
-                if (btn) { btn.innerText = "自动轮播：开"; btn.classList.add('active-cycle'); }
-            }
-
-            loadArt(currentArtIndex);
-            
-            window.addEventListener('resize', handleSmartResize);
-            setInterval(saveMemory, 1500);
-            window.addEventListener('beforeunload', saveMemory);
-            document.addEventListener('visibilitychange', function() { if (document.hidden) saveMemory(); });
-
-            window.addEventListener('wheel', function(e) {
-                var multiplier = e.deltaY < 0 ? 1.01 : (1/1.01); 
-                if (document.getElementById('top-wrapper').contains(e.target)) {
-                    if(isPlaying) return;
-                    e.preventDefault(); e.stopImmediatePropagation();
-                    zoomTopViewer(multiplier);
-                } else if (document.getElementById('bottom-wrapper').contains(e.target)) {
-                    if(isPlaying) return;
-                    e.preventDefault(); e.stopImmediatePropagation();
-                    if (bottomViewer && bottomViewer.viewport) bottomViewer.viewport.zoomTo(bottomViewer.viewport.getZoom() * multiplier);
-                }
-            }, { capture: true, passive: false });
-        }
-
-        function loadArt(index) {
-            currentArtIndex = index;
-            var art = artworks[index];
-            if (!art) return;
-            
-            if (animationRequest) { cancelAnimationFrame(animationRequest); animationRequest = null; }
-            if (bottomViewer) { bottomViewer.destroy(); bottomViewer = null; }
-            if (topViewer) { topViewer.destroy(); topViewer = null; }
-
-            document.getElementById('bottom-viewer').innerHTML = '';
-            document.getElementById('top-viewer').innerHTML = '';
-
-            var finalTileSources;
-            if (Array.isArray(art.folder)) {
-                var currentAccumulatedX = 0;
-                finalTileSources = art.folder.map(function(item) {
-                    var config = { tileSource: item.tileSource, x: currentAccumulatedX / art.width, y: 0, width: item.width / art.width };
-                    currentAccumulatedX += item.width;          
-                    return config;
-                });
-            } else {
-                finalTileSources = { type: 'zoomifytileservice', width: art.width, height: art.height, tilesUrl: art.folder };
-            }
-
-            var osdConfig = {
-                prefixUrl: "openseadragon/images/",
-                tileSources: finalTileSources, canvasColor: 'transparent',
-                showNavigationControl: false, showNavigator: false, 
-                gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: false }, 
-                visibilityRatio: 1.0, constrainDuringPan: true, blendingTime: 0.1, preserveViewport: true, preserveImageSizeOnResize: true
-            };
-
-            var bConfig = JSON.parse(JSON.stringify(osdConfig)); bConfig.id = "bottom-viewer"; bConfig.animationTime = 0.4; bConfig.zoomPerScroll = 1.05;
-            var tConfig = JSON.parse(JSON.stringify(osdConfig)); tConfig.id = "top-viewer"; tConfig.animationTime = 0.3; tConfig.zoomPerScroll = 1.05;
-
-            bottomViewer = OpenSeadragon(bConfig);
-            topViewer = OpenSeadragon(tConfig);
-
-            bottomViewer.addHandler('canvas-click', function(event) {
-                if (!event.quick) return; event.preventDefaultAction = true; togglePlayState();
-            });
-            
-            topViewer.addHandler('canvas-click', function(event) {
-                if (!event.quick) return; 
-                event.preventDefaultAction = true; 
-                var pt = topViewer.viewport.pointFromPixel(event.position);
-                bottomViewer.viewport.panTo(new OpenSeadragon.Point(pt.x, bottomViewer.viewport.getCenter().y));
-            });
-
-            var isSyncing = false;
-            
-            topViewer.addHandler('pan', function() {
-                if(isSyncing || isPlaying) return; isSyncing = true;
-                var art = artworks[currentArtIndex];
-                var tx = topViewer.viewport.getCenter().x;
-                topViewer.viewport.panTo(new OpenSeadragon.Point(tx, (art.height/art.width) - topViewer.viewport.getBounds().height / 2), true);
-                bottomViewer.viewport.panTo(new OpenSeadragon.Point(tx, bottomViewer.viewport.getBounds().height / 2), true);
-                isSyncing = false;
-            });
-            
-            bottomViewer.addHandler('pan', function() {
-                if(isSyncing || isPlaying) return; isSyncing = true;
-                var art = artworks[currentArtIndex];
-                var bx = bottomViewer.viewport.getCenter().x;
-                bottomViewer.viewport.panTo(new OpenSeadragon.Point(bx, bottomViewer.viewport.getBounds().height / 2), true);
-                topViewer.viewport.panTo(getClampedCenter(bx, 0, topViewer, art.height/art.width), true);
-                isSyncing = false;
-            });
-
-            topViewer.addHandler('zoom', function() {
-                if (isPlaying) return;
-                var art = artworks[currentArtIndex];
-                topViewer.viewport.panTo(getClampedCenter(topViewer.viewport.getCenter().x, 0, topViewer, art.height/art.width), true);
-            });
-
-            bottomViewer.addHandler('zoom', function() {
-                if (isPlaying) return;
-                bottomViewer.viewport.panTo(new OpenSeadragon.Point(bottomViewer.viewport.getCenter().x, bottomViewer.viewport.getBounds().height / 2), true);
-            });
-
-            var openCount = 0;
-            function tryInit() {
-                openCount++;
-                if (openCount >= 2) {
-                    var bContainer = bottomViewer.viewport.getContainerSize();
-                    if (bContainer.x === 0 || bContainer.y === 0) { openCount--; setTimeout(tryInit, 50); return; }
-
-                    document.getElementById('art-title').innerText = artworks[currentArtIndex].name;
-                    document.getElementById('full-desc').innerText = artworks[currentArtIndex].desc;
-                    
-                    var syncArt = artworks[currentArtIndex];
-                    var syncParts = (syncArt.category || "未分类").split(" - ");
-                    var syncDynasty = syncParts[0] ? syncParts[0].trim() : "未分类";
-                    var syncAuthor = syncParts[1] ? syncParts[1].trim() : "其他作者";
-                    
-                    var selDynasty = document.getElementById('sel-dynasty');
-                    if (selDynasty && selDynasty.value !== syncDynasty) {
-                        selDynasty.value = syncDynasty;
-                        updateAuthor(syncAuthor, currentArtIndex);
-                    }
-                    
-                    var mem = galleryMemory.artStates[currentArtIndex];
-                    var startX = 1.05; 
-
-                    if (mem && mem.bZoom && mem.bZoom > 0) {
-                        bottomViewer.viewport.zoomTo(mem.bZoom, null, true);
-                        topViewer.viewport.zoomTo(mem.tZoom, null, true);
-                        
-                        var bVpHeight = (bContainer.y / bContainer.x) / mem.bZoom;
-                        bottomViewer.viewport.panTo(new OpenSeadragon.Point(startX, bVpHeight / 2), true);
-                        
-                        var imgRatio = artworks[currentArtIndex].height / artworks[currentArtIndex].width;
-                        var clampedTop = getClampedCenter(startX, imgRatio / 2, topViewer, imgRatio);
-                        topViewer.viewport.panTo(clampedTop, true);
-                    } else {
-                        applyInitialLayout();
-                    }
-
-                    startAnimationLoop();
-                    setTimeout(function(){ if(!galleryMemory.artStates[currentArtIndex]) applyInitialLayout(); }, 800);
-
-                    setTimeout(function() {
-                        document.body.style.borderTop = '1px solid rgba(0,0,0,0.01)';
-                        if(bottomViewer) bottomViewer.forceRedraw();
-                        if(topViewer) topViewer.forceRedraw();
-                        setTimeout(function() { document.body.style.borderTop = 'none'; }, 100);
-                    }, 500);
-                }
-            }
-
-            bottomViewer.addHandler('open', tryInit);
-            topViewer.addHandler('open', tryInit);
-            bottomViewer.addHandler('animation', syncRedBox);
-            topViewer.addHandler('animation', syncRedBox);
-        }
-
-       function getClampedCenter(targetX, targetY, viewer, imgRatio) {
-            var bounds = viewer.viewport.getBounds();
-            var vpWidth = bounds.width;
-            var vpHeight = bounds.height;
-            var cX, cY;
-            
-            if (vpWidth >= 1.0) { cX = 0.5; } 
-            else { cX = Math.max(vpWidth / 2, Math.min(1.0 - vpWidth / 2, targetX)); }
-            
-            if (viewer.element.id === "top-viewer") {
-                cY = imgRatio - (vpHeight / 2); 
-            } else {
-                cY = vpHeight / 2; 
-            }
-            return new OpenSeadragon.Point(cX, cY);
-        }
-
-        function syncRedBox() {
-            if (!bottomViewer || !topViewer || !bottomViewer.viewport || !topViewer.viewport) return;
-            try {
-                var bounds = bottomViewer.viewport.getBounds(true);
-                var tl = topViewer.viewport.pixelFromPoint(bounds.getTopLeft(), true);
-                var br = topViewer.viewport.pixelFromPoint(bounds.getBottomRight(), true);
-                
-                var box = document.getElementById('red-box');
-                if (box) {
-                    box.style.left = tl.x + 'px'; 
-                    box.style.width = (br.x - tl.x) + 'px';
-                    
-                    var art = artworks[currentArtIndex];
-                    var imgRatio = art.height / art.width;
-                    
-                    var imgTopPixel = topViewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, 0), true);
-                    var imgBottomPixel = topViewer.viewport.pixelFromPoint(new OpenSeadragon.Point(0, imgRatio), true);
-                    
-                    box.style.top = imgTopPixel.y + 'px'; 
-                    box.style.height = (imgBottomPixel.y - imgTopPixel.y) + 'px';
-                }
-            } catch(e) {}
-        }
-
-        function applyInitialLayout() {
-            var art = artworks[currentArtIndex];
-            var imgRatio = art.height / art.width;
-            
-            bottomViewer.viewport.zoomTo(1.5, null, true); 
-            bottomViewer.viewport.panTo(new OpenSeadragon.Point(1.05, bottomViewer.viewport.getBounds().height / 2), true);
-            
-            topViewer.viewport.goHome(true);
-            var clampedTop = getClampedCenter(1.05, 0, topViewer, imgRatio);
-            topViewer.viewport.panTo(clampedTop, true);
-        }
-
-       function handleSmartResize() {
-            if (bottomViewer && bottomViewer.viewport) {
-                bottomViewer.forceRedraw();
-                if(topViewer) topViewer.forceRedraw();
-                syncRedBox();
-            }
-        }
-        
-        function zoomTopViewer(multiplier) { if (topViewer && topViewer.viewport) topViewer.viewport.zoomTo(topViewer.viewport.getZoom() * multiplier); }
-
-        function startAnimationLoop() {
-            function step() {
-                if (bottomViewer && topViewer && bottomViewer.viewport && topViewer.viewport) {
-                    var art = artworks[currentArtIndex];
-                    var imgRatio = art.height / art.width;
-                    
-                    if (isPlaying) {
-                        var bVpHeight = (bottomViewer.viewport.getContainerSize().y / bottomViewer.viewport.getContainerSize().x) / bottomViewer.viewport.getZoom();
-                        var bottomAnchorY = bVpHeight / 2;
-                        var topAnchorY = imgRatio / 2;
-
-                        var newX = bottomViewer.viewport.getCenter().x + scrollStep;
-                        var leftLimit = bottomViewer.viewport.getBounds().width / 2;
-                        
-                        if (newX < leftLimit) {
-                            if (isAutoCycle) { 
-                                isPlaying = false; 
-                                setTimeout(function() {
-                                    isPlaying = true;
-                                    loadArt((currentArtIndex + 1) % artworks.length); 
-                                }, 500); 
-                                return; 
-                            } 
-                            else { newX = 1.1; } 
-                        }
-                        if (newX > 1.1) newX = -0.1;
-
-                        bottomViewer.viewport.panTo(new OpenSeadragon.Point(newX, bottomAnchorY), true);
-                        
-                        var clampedTop = getClampedCenter(newX, topAnchorY, topViewer, imgRatio);
-                        topViewer.viewport.panTo(clampedTop, true);
-                    }
-                    syncRedBox();
-                }
-                animationRequest = requestAnimationFrame(step);
-            }
-            animationRequest = requestAnimationFrame(step);
-        }
-
-        function toggleAutoCycle() {
-            isAutoCycle = !isAutoCycle;
-            var btn = document.getElementById('cycle-btn');
-            btn.innerText = isAutoCycle ? "自动轮播：开" : "自动轮播：关";
-            btn.classList.toggle('active-cycle', isAutoCycle);
-            saveMemory(); 
-        }
-
-        function togglePlayState() {
-            if (document.body.classList.contains('show-details')) { document.body.classList.remove('show-details'); return; }
-            isPlaying = !isPlaying; document.body.classList.toggle('paused', !isPlaying); saveMemory(); 
-        }
-
-        function resetView() {
-            if (bottomViewer) {
-                applyInitialLayout(); isPlaying = true; document.body.classList.remove('paused', 'show-details');
-                if (galleryMemory.artStates[currentArtIndex]) { delete galleryMemory.artStates[currentArtIndex]; saveMemory(); }
-            }
-        }
-
-        function toggleFullscreen(e) {
-            e.stopPropagation();
-            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-            else if(document.exitFullscreen) document.exitFullscreen();
-        }
-
-        function toggleDetails(e) { e.stopPropagation(); document.body.classList.toggle('show-details'); }
-       function switchArt(val) { saveMemory(); isPlaying = false; document.body.classList.add('paused'); document.body.classList.remove('show-details'); loadArt(parseInt(val)); }
-        function adjustSpeed(delta) { 
-            var dir = scrollStep > 0 ? 1 : -1; scrollStep = (Math.abs(scrollStep) + delta) * dir; 
-            scrollStep = Math.max(0.000005, Math.min(0.0002, Math.abs(scrollStep))) * dir; saveMemory(); 
-        }
-        function reverseDir() { scrollStep = -scrollStep; saveMemory(); }
-
-        if ('serviceWorker' in navigator) { window.addEventListener('load', function() { navigator.serviceWorker.register('sw.js').catch(function(){}); }); }
-        window.onload = initGallery;
-    </script>
 </body>
 </html>
