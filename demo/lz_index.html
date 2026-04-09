@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 立轴馆 (层级策展版)</title>
+    <title>私人美术館 - 立轴馆 (层级策展防弹版)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,28 +19,22 @@
         body.idle { cursor: none; }
         body.idle #control-bar { opacity: 0; pointer-events: none; }
 
-        /* ========================================== */
         /* 多重转场特效核心系统 */
-        /* ========================================== */
-        #main-viewer { position: absolute; top: 1.5%; bottom: 1.5%; left: 0; right: 0; opacity: 0; transition: all 0.8s cubic-bezier(0.25, 0.8, 0.25, 1); }
-        
+        #main-viewer { position: absolute; top: 0.2%; bottom: 0.2%; left: 0; right: 0; opacity: 0; transition: all 0.8s cubic-bezier(0.25, 0.8, 0.25, 1); }
         #main-viewer.effect-fade { transform: none; }
         #main-viewer.effect-fade.loaded { opacity: 1; transform: none; }
-        
         #main-viewer.effect-slide { transform: translateY(80px); }
         #main-viewer.effect-slide.loaded { opacity: 1; transform: translateY(0); }
-        
         #main-viewer.effect-zoom { transform: scale(0.9); }
         #main-viewer.effect-zoom.loaded { opacity: 1; transform: scale(1); }
-
         #main-viewer.effect-none { transition: none !important; transform: none; }
         #main-viewer.effect-none.loaded { opacity: 1; transition: none !important; }
 
         /* 悬浮呼吸阴影层 */
         #breath-shadow { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; animation: breath 6s infinite alternate ease-in-out; }
         @keyframes breath {
-            0% { box-shadow: inset 0 0 60px rgba(0,0,0,0.6); }
-            100% { box-shadow: inset 0 0 150px rgba(0,0,0,0.9); }
+            0% { box-shadow: inset 0 0 15px rgba(0,0,0,0.4); }
+            100% { box-shadow: inset 0 0 45px rgba(0,0,0,0.7); }
         }
 
         #header-zone { display: none !important; } /* 永久隐藏顶部名字 */
@@ -52,16 +46,13 @@
         select:hover { border-color: #d4a017; }
         select option { background: #1a1514; color: #E6D2B4; }
 
-        /* ========================================== */
         /* 自定义复选框下拉菜单 CSS (带三级联动策展台) */
-        /* ========================================== */
         .custom-select-container { position: relative; display: inline-block; vertical-align: middle; margin: 4px; text-align: left; }
         .custom-select-header { padding: 8px 14px; background: rgba(26, 21, 20, 0.8); color: #FFF5E6; border: 1px solid rgba(212, 160, 23, 0.4); border-radius: 6px; cursor: pointer; font-size: 14px; min-width: 220px; backdrop-filter: blur(4px); display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease; }
         .custom-select-header:hover { border-color: #d4a017; }
         .custom-select-list { position: absolute; bottom: 100%; left: 0; margin-bottom: 5px; background: rgba(26, 21, 20, 0.95); border: 1px solid rgba(212, 160, 23, 0.4); border-radius: 6px; max-height: 450px; overflow-y: auto; display: none; min-width: 100%; width: max-content; z-index: 300; box-shadow: 0 -5px 20px rgba(0,0,0,0.7); }
         .custom-select-list.open { display: block; }
         
-        /* 🌟 升级：三级联动策展控制台 */
         .batch-controls { display: flex; flex-direction: column; background: rgba(30, 25, 20, 1); border-bottom: 1px solid #d4a017; position: sticky; top: 0; z-index: 10; }
         .batch-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; border-bottom: 1px dashed rgba(212, 160, 23, 0.15); }
         .batch-row:last-child { border-bottom: none; }
@@ -247,9 +238,8 @@
             switchArt(firstArtIndex); 
         }
 
-        // 🌟 核心升级：三层级联动批处理逻辑
         window.toggleSelection = function(level, state, e) {
-            e.stopPropagation(); // 防止菜单关闭
+            e.stopPropagation(); 
             var currentDynasty = document.getElementById('sel-dynasty').value;
             var currentAuthor = document.getElementById('sel-author').value;
 
@@ -259,18 +249,15 @@
                 var a = parts[1] ? parts[1].trim() : "其他作者";
 
                 if (level === 'global') {
-                    // 全馆操作
                     art.selectedForSlide = state;
                 } else if (level === 'dynasty') {
-                    // 朝代级操作
                     if (d === currentDynasty) art.selectedForSlide = state;
                 } else if (level === 'author') {
-                    // 作者级操作
                     if (d === currentDynasty && a === currentAuthor) art.selectedForSlide = state;
                 }
             });
             syncMenusSilently(currentArtIndex); 
-        };
+        }
 
         function syncMenusSilently(index) {
             var art = artworks[index];
@@ -297,7 +284,6 @@
             var listEl = document.getElementById('custom-artwork-list');
             listEl.innerHTML = '';
             
-            // 🌟 注入三级联动策展台 HTML
             var actionsDiv = document.createElement('div');
             actionsDiv.className = 'batch-controls';
             
@@ -432,15 +418,24 @@
                     showNavigator: false, 
                     visibilityRatio: 1.0, 
                     constrainDuringPan: true, 
-                    blendingTime: 0.1,
                     defaultZoomLevel: 0, 
-                    minZoomImageRatio: 0.9 
+                    minZoomImageRatio: 0.9,
+                    
+                    // 保留平滑过渡参数，去除生硬感
+                    blendingTime: 0.5,           
+                    alwaysBlend: true,           
+                    imageLoaderLimit: 15,
+                    preload: true // 开启引擎预加载机制
                 });
 
                 viewer.addHandler('open', function() {
-                    viewerEl.classList.add('loaded');
-                    resetView(); 
-                    manageSlideshow(); 
+                    // 👇 🌟 终极奥义：隐形预渲染 🌟 👇
+                    // 收到图纸后，硬性等待 400 毫秒，让引擎在后台把瓷砖全部贴完！
+                    setTimeout(function() {
+                        viewerEl.classList.add('loaded'); // 帷幕拉开
+                        resetView(); 
+                        manageSlideshow(); 
+                    }, 400); // 如果您觉得 400 毫秒还是能看到一点瓷砖，可以改成 500 或 600
                 });
 
                 viewer.addHandler('zoom', function() {
@@ -455,19 +450,12 @@
                 viewer.addHandler('canvas-drag', clearIdle);
                 viewer.addHandler('canvas-pinch', clearIdle);
 
+                // 🌟 这里彻底去除了触发 togglePlay/changePlayMode 的误触逻辑！
                 viewer.addHandler('canvas-click', function(event) {
                     if (!event.quick) return; 
                     event.preventDefaultAction = true; 
                     if (document.body.classList.contains('show-details')) {
                         toggleDetails(event); 
-                    } else {
-                        var selMode = document.getElementById('sel-play-mode');
-                        if (playMode !== 'stop') {
-                            selMode.value = 'stop';
-                        } else {
-                            selMode.value = lastPlayMode;
-                        }
-                        changePlayMode();
                     }
                 });
 
