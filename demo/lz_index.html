@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 立轴馆 (幻灯片智能版)</title>
+    <title>私人美术館 - 立轴馆 (满配记忆版)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <link rel="manifest" href="manifest.json">
@@ -10,38 +10,49 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        /* 故宫深栗色背景 + 默认光标 */
         html, body { width: 100%; height: 100%; background: #1a1514; overflow: hidden; font-family: "STSong", "SimSun", serif; color: #E6D2B4; cursor: default; transition: background 1s ease; }
         
-        /* 沉浸式隐身模式：隐藏鼠标和UI */
         body.idle { cursor: none; }
         body.idle #control-bar, body.idle #header-zone { opacity: 0; pointer-events: none; }
 
-        /* 全屏唯一的展示区，上下留出 1.5% 缝隙，展现立轴悬浮感 */
-        #main-viewer { position: absolute; top: 1.5%; bottom: 1.5%; left: 0; right: 0; opacity: 0; transition: opacity 0.8s ease-in-out; }
-        #main-viewer.loaded { opacity: 1; }
+        #main-viewer { 
+            position: absolute; top: 1.5%; bottom: 1.5%; left: 0; right: 0; 
+            opacity: 0; 
+            transition: all 0.8s cubic-bezier(0.4, 0.0, 0.2, 1); 
+        }
         
-        /* 悬浮呼吸阴影层（盖在背景之上，画作之下） */
+        #main-viewer[data-transition="fade"] { transform: scale(1); }
+        #main-viewer[data-transition="slide-up"] { transform: translateY(50px); }
+        #main-viewer[data-transition="zoom"] { transform: scale(0.96); }
+
+        #main-viewer.loaded { 
+            opacity: 1; 
+            transform: translateY(0) scale(1); 
+        }
+        
         #breath-shadow { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; animation: breath 6s infinite alternate ease-in-out; }
         @keyframes breath {
             0% { box-shadow: inset 0 0 60px rgba(0,0,0,0.6); }
             100% { box-shadow: inset 0 0 150px rgba(0,0,0,0.9); }
         }
 
-        #header-zone { position: absolute; top: 30px; left: 0; width: 100%; text-align: center; transition: opacity 0.5s ease; z-index: 100; pointer-events: none; text-shadow: 2px 2px 8px rgba(0,0,0,0.8); }
+       /* 永久隐藏顶部的画作名称区域 */
+        #header-zone { display: none !important; }
         #art-title { display: inline-block; font-size: 26px; color: #d4a017; letter-spacing: 6px; font-weight: bold; }
         
         #control-bar { position: absolute; bottom: 20px; left: 0; width: 100%; padding: 10px; text-align: center; transition: opacity 0.5s ease; z-index: 200; }
         
         .btn, select { display: inline-block; margin: 4px; padding: 8px 14px; background: rgba(26, 21, 20, 0.8); color: #FFF5E6; border: 1px solid rgba(212, 160, 23, 0.4); border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s ease; vertical-align: middle; backdrop-filter: blur(4px); }
-        .btn:hover, select:hover { background: #d4a017; color: #000; border-color: #d4a017; }
+        /* 按钮悬停时整块变金 */
+        .btn:hover { background: #d4a017; color: #000; border-color: #d4a017; }
+        /* 下拉菜单悬停时只亮边框，不染背景 */
+        select:hover { border-color: #d4a017; }
+        /* 强制固定下拉选项为深底浅字，防止被系统样式污染 */
+        select option { background: #1a1514; color: #E6D2B4; }
         .btn.active-play { background: rgba(212, 160, 23, 0.8); border-color: #d4a017; color: #000; font-weight: bold; }
 
-        /* 立轴版作品志：右侧抽屉式滑出 */
         #details-panel { position: absolute; right: -450px; top: 0; width: 400px; height: 100%; background: rgba(26, 21, 20, 0.95); border-left: 1px solid rgba(212, 160, 23, 0.3); box-shadow: -10px 0 40px rgba(0,0,0,0.8); padding: 40px 30px; transition: right 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 205; overflow-y: auto; line-height: 2.2; font-size: 17px; text-align: justify; }
         body.show-details #details-panel { right: 0; }
-        
-        /* 自定义滚动条 */
         #details-panel::-webkit-scrollbar { width: 6px; }
         #details-panel::-webkit-scrollbar-thumb { background: #d4a017; border-radius: 3px; }
     </style>
@@ -49,26 +60,43 @@
 <body>
 
     <div id="breath-shadow"></div>
-    <div id="main-viewer" class="osd-viewer"></div>
+    <div id="main-viewer" class="osd-viewer" data-transition="fade"></div>
 
     <div id="header-zone"><div id="art-title">加载中...</div></div>
     
     <div id="control-bar">
         <select id="sel-dynasty" onchange="updateAuthor()" style="max-width: 120px;"></select>
         <select id="sel-author" onchange="updateArtwork()" style="max-width: 140px;"></select>
-        <select id="sel-artwork" onchange="switchArt(this.value)" style="max-width: 250px;"></select>
+        <select id="sel-artwork" onchange="switchArtByUser(this.value)" style="max-width: 250px;"></select>
         
+        <select id="sel-transition" onchange="changeTransition()">
+            <option value="fade">淡入淡出</option>
+            <option value="slide-up">自下浮现</option>
+            <option value="zoom">中心缩放</option>
+        </select>
+
         <select id="sel-interval" onchange="changeInterval()">
             <option value="10000">10 秒</option>
             <option value="30000">30 秒</option>
-            <option value="60000" selected>1 分钟</option>
+            <option value="60000">1 分钟</option>
             <option value="180000">3 分钟</option>
+            <option value="300000">5 分钟</option>
+            <option value="600000">10 分钟</option>
+            <option value="1800000">30 分钟</option>
+            <option value="3600000">60 分钟</option>
         </select>
         
-        <button id="play-btn" class="btn" onclick="togglePlay()">播放 / 暂停</button>
+        <button id="play-btn" class="btn" onclick="togglePlay()">轮播 开/关</button>
         <button class="btn" onclick="resetView()">全景 / 归位</button>
         <button id="info-btn" class="btn" onclick="toggleDetails(event)">作品志</button>
         <button id="fs-btn" class="btn" onclick="toggleFullscreen(event)">全屏</button>
+
+        <select onchange="if(this.value) window.location.href=this.value;" style="margin-left: 15px; color: #d4a017; border-color: #d4a017; font-weight: bold;">
+            <option value="" disabled selected>🏛️ 切换展馆...</option>
+            <option value="lz_index.html">仰观高山 (立轴馆)</option>
+            <option value="sj_index.html">步入长卷 (手卷馆)</option>
+            <option value="index.html">退回大门 (总大堂)</option>
+        </select>
     </div>
 
     <div id="details-panel" onclick="event.stopPropagation()">
@@ -96,7 +124,6 @@
             { category: "清代 - zhuderun", name: "qiushnyinjv_huaxin", width: 1819, height: 4064, folder: "lz_tiles/qing/zhuderun/qiushnyinjv_huaxin/", desc: `请在此输入这幅传世名作的背景与赏析...` }
         ];
 
-        // 全局变量区
         var viewer, slideTimer, idleTimer;
         var currentArtIndex = 0;
         var isPlaying = false; 
@@ -106,9 +133,56 @@
         var isCanvasInteracting = false; 
         var catalogTree = {}; 
 
-        // ==========================================
-        // 菜单与数据逻辑
-        // ==========================================
+        function initGallery() {
+            if (!artworks || artworks.length === 0) return;
+            
+            var savedTransition = localStorage.getItem('lz_transition') || 'fade';
+            var savedInterval = localStorage.getItem('lz_interval') || '60000';
+            var savedIsPlaying = localStorage.getItem('lz_isPlaying') === 'true';
+
+            document.getElementById('sel-transition').value = savedTransition;
+            document.getElementById('main-viewer').setAttribute('data-transition', savedTransition);
+            
+            var selInterval = document.getElementById('sel-interval');
+            if([...selInterval.options].some(o => o.value === savedInterval)) {
+                selInterval.value = savedInterval;
+            }
+            playInterval = parseInt(selInterval.value);
+
+            isPlaying = savedIsPlaying;
+            updatePlayBtnUI(); 
+
+            catalogTree = {};
+            artworks.forEach(function(art, index) {
+                var parts = (art.category || "未分类").split(" - ");
+                var dynasty = parts[0] ? parts[0].trim() : "未分类";
+                var author = parts[1] ? parts[1].trim() : "其他作者";
+
+                if (!catalogTree[dynasty]) catalogTree[dynasty] = {};
+                if (!catalogTree[dynasty][author]) catalogTree[dynasty][author] = [];
+                catalogTree[dynasty][author].push({ index: index, name: art.name });
+            });
+
+            var selDynasty = document.getElementById('sel-dynasty');
+            selDynasty.innerHTML = '';
+            for (var d in catalogTree) {
+                var opt = document.createElement('option');
+                opt.value = d; opt.text = d;
+                selDynasty.appendChild(opt);
+            }
+
+            var currentArt = artworks[currentArtIndex];
+            var currParts = (currentArt.category || "未分类").split(" - ");
+            selDynasty.value = currParts[0] ? currParts[0].trim() : "未分类";
+            
+            updateAuthor(currParts[1] ? currParts[1].trim() : "其他作者", currentArtIndex); 
+
+            loadArt(currentArtIndex);
+            setupIdleTimer(); 
+            
+            window.addEventListener('resize', function() { if(viewer) viewer.forceRedraw(); });
+        }
+
         function updateAuthor(targetAuthor, targetArtIndex) {
             var selDynasty = document.getElementById('sel-dynasty');
             var selAuthor = document.getElementById('sel-author');
@@ -157,53 +231,17 @@
                 selArtwork.value = targetArtIndex; 
             } else {
                 selArtwork.value = firstIndex;
-                switchArt(firstIndex); 
+                switchArtByUser(firstIndex); 
             }
         }
 
-        function initGallery() {
-            if (!artworks || artworks.length === 0) return;
-            
-            catalogTree = {};
-            artworks.forEach(function(art, index) {
-                var parts = (art.category || "未分类").split(" - ");
-                var dynasty = parts[0] ? parts[0].trim() : "未分类";
-                var author = parts[1] ? parts[1].trim() : "其他作者";
-
-                if (!catalogTree[dynasty]) catalogTree[dynasty] = {};
-                if (!catalogTree[dynasty][author]) catalogTree[dynasty][author] = [];
-                catalogTree[dynasty][author].push({ index: index, name: art.name });
-            });
-
-            var selDynasty = document.getElementById('sel-dynasty');
-            selDynasty.innerHTML = '';
-            for (var d in catalogTree) {
-                var opt = document.createElement('option');
-                opt.value = d; opt.text = d;
-                selDynasty.appendChild(opt);
-            }
-
-            var currentArt = artworks[currentArtIndex];
-            var currParts = (currentArt.category || "未分类").split(" - ");
-            selDynasty.value = currParts[0] ? currParts[0].trim() : "未分类";
-            updateAuthor(currParts[1] ? currParts[1].trim() : "其他作者", currentArtIndex); 
-
-            loadArt(currentArtIndex);
-            setupIdleTimer(); 
-            
-            window.addEventListener('resize', function() { if(viewer) viewer.forceRedraw(); });
-        }
-
-        // ==========================================
-        // 核心加载与淡入淡出转场 (包含安卓终极防弹补丁)
-        // ==========================================
         function loadArt(index) {
             currentArtIndex = index;
             var art = artworks[index];
             if (!art) return;
             
             var viewerEl = document.getElementById('main-viewer');
-            viewerEl.classList.remove('loaded');
+            viewerEl.classList.remove('loaded'); 
             
             document.getElementById('art-title').innerText = art.name;
             document.getElementById('full-desc').innerText = art.desc;
@@ -239,7 +277,7 @@
                 });
 
                 viewer.addHandler('open', function() {
-                    viewerEl.classList.add('loaded');
+                    viewerEl.classList.add('loaded'); 
                     resetView(); 
                     manageSlideshow(); 
                 });
@@ -251,13 +289,11 @@
                     manageSlideshow(); 
                 });
 
-                // 安卓防弹级监控：手指按下冻结倒计时
                 viewer.addHandler('canvas-press', function() {
                     isCanvasInteracting = true; 
                     clearIdle(); 
                 });
                 
-                // 手指松开开始 5.5 秒倒计时
                 viewer.addHandler('canvas-release', function() {
                     isCanvasInteracting = false; 
                     startIdle(); 
@@ -276,12 +312,9 @@
                     }
                 });
 
-            }, 600); 
+            }, 800); 
         }
 
-        // ==========================================
-        // 幻灯片与控制功能
-        // ==========================================
         function manageSlideshow() {
             clearTimeout(slideTimer);
             var isReading = document.body.classList.contains('show-details');
@@ -292,8 +325,12 @@
                     
                     var nextArt = artworks[nextIdx];
                     var parts = (nextArt.category || "未分类").split(" - ");
-                    document.getElementById('sel-dynasty').value = parts[0] ? parts[0].trim() : "未分类";
-                    updateAuthor(parts[1] ? parts[1].trim() : "其他作者", nextIdx);
+                    var targetDynasty = parts[0] ? parts[0].trim() : "未分类";
+                    var targetAuthor = parts[1] ? parts[1].trim() : "其他作者";
+                    
+                    document.getElementById('sel-dynasty').value = targetDynasty;
+                    updateAuthor(targetAuthor, nextIdx); 
+                    loadArt(nextIdx); 
                     
                 }, playInterval);
             }
@@ -301,28 +338,44 @@
 
         function togglePlay() {
             isPlaying = !isPlaying;
-            var btn = document.getElementById('play-btn');
+            localStorage.setItem('lz_isPlaying', isPlaying); 
+            updatePlayBtnUI();
+            
             if (isPlaying) {
-                btn.innerText = "播放中...";
-                btn.classList.add('active-play');
                 resetView(); 
                 document.body.classList.remove('show-details');
-            } else {
-                btn.innerText = "播放 / 暂停";
-                btn.classList.remove('active-play');
             }
             manageSlideshow();
         }
 
+        function updatePlayBtnUI() {
+            var btn = document.getElementById('play-btn');
+            if (isPlaying) {
+                btn.innerText = "轮播 开";
+                btn.classList.add('active-play');
+            } else {
+                btn.innerText = "轮播 关";
+                btn.classList.remove('active-play');
+            }
+        }
+
         function changeInterval() {
             playInterval = parseInt(document.getElementById('sel-interval').value);
+            localStorage.setItem('lz_interval', playInterval); 
             manageSlideshow(); 
         }
 
-        function switchArt(val) { 
+        function changeTransition() {
+            var t = document.getElementById('sel-transition').value;
+            document.getElementById('main-viewer').setAttribute('data-transition', t);
+            localStorage.setItem('lz_transition', t); 
+        }
+
+        function switchArtByUser(val) { 
             isPlaying = false; 
-            document.getElementById('play-btn').innerText = "播放 / 暂停";
-            document.getElementById('play-btn').classList.remove('active-play');
+            localStorage.setItem('lz_isPlaying', 'false');
+            updatePlayBtnUI();
+            
             document.body.classList.remove('show-details'); 
             loadArt(parseInt(val)); 
         }
@@ -347,9 +400,6 @@
             else if(document.exitFullscreen) document.exitFullscreen();
         }
 
-        // ==========================================
-        // 隐身模式：安卓底层防弹版 (终极完整版)
-        // ==========================================
         function clearIdle() {
             document.body.classList.remove('idle');
             clearTimeout(idleTimer);
@@ -400,7 +450,6 @@
             startIdle(); 
         }
 
-        // 🌟 就是这句超级关键的“总电闸”，帮您补回来了！
         window.onload = initGallery;
     </script>
 </body>

@@ -60,6 +60,12 @@
         <button id="info-btn" class="btn" onclick="toggleDetails(event)">作品志</button>
         <button id="fs-btn" class="btn" onclick="toggleFullscreen(event)">全屏</button>
         <button class="btn" style="color:var(--accent-color); font-weight:bold; border-color:var(--accent-color);" onclick="togglePlayState()">继续</button>
+<select onchange="if(this.value) window.location.href=this.value;" style="margin-left: 15px; color: #d4a017; border-color: #d4a017; font-weight: bold;">
+            <option value="" disabled selected>🏛️ 切换展馆...</option>
+            <option value="lz_index.html">仰观高山 (立轴馆)</option>
+            <option value="sj_index.html">步入长卷 (手卷馆)</option>
+            <option value="index.html">退回大门 (总大堂)</option>
+        </select>
     </div>
 
     <div id="details-panel" onclick="event.stopPropagation()"><div id="full-desc"></div></div>
