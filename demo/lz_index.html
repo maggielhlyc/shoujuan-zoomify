@@ -2,10 +2,14 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>私人美术館 - 立轴馆 (满配记忆版)</title>
+    <title>私人美术館 - 立轴馆 (层级策展版)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="桐观">
     <link rel="manifest" href="manifest.json">
+    
     <script src="openseadragon/openseadragon.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -13,44 +17,67 @@
         html, body { width: 100%; height: 100%; background: #1a1514; overflow: hidden; font-family: "STSong", "SimSun", serif; color: #E6D2B4; cursor: default; transition: background 1s ease; }
         
         body.idle { cursor: none; }
-        body.idle #control-bar, body.idle #header-zone { opacity: 0; pointer-events: none; }
+        body.idle #control-bar { opacity: 0; pointer-events: none; }
 
-        #main-viewer { 
-            position: absolute; top: 1.5%; bottom: 1.5%; left: 0; right: 0; 
-            opacity: 0; 
-            transition: all 0.8s cubic-bezier(0.4, 0.0, 0.2, 1); 
-        }
+        /* ========================================== */
+        /* 多重转场特效核心系统 */
+        /* ========================================== */
+        #main-viewer { position: absolute; top: 1.5%; bottom: 1.5%; left: 0; right: 0; opacity: 0; transition: all 0.8s cubic-bezier(0.25, 0.8, 0.25, 1); }
         
-        #main-viewer[data-transition="fade"] { transform: scale(1); }
-        #main-viewer[data-transition="slide-up"] { transform: translateY(50px); }
-        #main-viewer[data-transition="zoom"] { transform: scale(0.96); }
+        #main-viewer.effect-fade { transform: none; }
+        #main-viewer.effect-fade.loaded { opacity: 1; transform: none; }
+        
+        #main-viewer.effect-slide { transform: translateY(80px); }
+        #main-viewer.effect-slide.loaded { opacity: 1; transform: translateY(0); }
+        
+        #main-viewer.effect-zoom { transform: scale(0.9); }
+        #main-viewer.effect-zoom.loaded { opacity: 1; transform: scale(1); }
 
-        #main-viewer.loaded { 
-            opacity: 1; 
-            transform: translateY(0) scale(1); 
-        }
-        
+        #main-viewer.effect-none { transition: none !important; transform: none; }
+        #main-viewer.effect-none.loaded { opacity: 1; transition: none !important; }
+
+        /* 悬浮呼吸阴影层 */
         #breath-shadow { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; animation: breath 6s infinite alternate ease-in-out; }
         @keyframes breath {
             0% { box-shadow: inset 0 0 60px rgba(0,0,0,0.6); }
             100% { box-shadow: inset 0 0 150px rgba(0,0,0,0.9); }
         }
 
-       /* 永久隐藏顶部的画作名称区域 */
-        #header-zone { display: none !important; }
-        #art-title { display: inline-block; font-size: 26px; color: #d4a017; letter-spacing: 6px; font-weight: bold; }
+        #header-zone { display: none !important; } /* 永久隐藏顶部名字 */
         
         #control-bar { position: absolute; bottom: 20px; left: 0; width: 100%; padding: 10px; text-align: center; transition: opacity 0.5s ease; z-index: 200; }
         
         .btn, select { display: inline-block; margin: 4px; padding: 8px 14px; background: rgba(26, 21, 20, 0.8); color: #FFF5E6; border: 1px solid rgba(212, 160, 23, 0.4); border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s ease; vertical-align: middle; backdrop-filter: blur(4px); }
-        /* 按钮悬停时整块变金 */
         .btn:hover { background: #d4a017; color: #000; border-color: #d4a017; }
-        /* 下拉菜单悬停时只亮边框，不染背景 */
         select:hover { border-color: #d4a017; }
-        /* 强制固定下拉选项为深底浅字，防止被系统样式污染 */
         select option { background: #1a1514; color: #E6D2B4; }
-        .btn.active-play { background: rgba(212, 160, 23, 0.8); border-color: #d4a017; color: #000; font-weight: bold; }
 
+        /* ========================================== */
+        /* 自定义复选框下拉菜单 CSS (带三级联动策展台) */
+        /* ========================================== */
+        .custom-select-container { position: relative; display: inline-block; vertical-align: middle; margin: 4px; text-align: left; }
+        .custom-select-header { padding: 8px 14px; background: rgba(26, 21, 20, 0.8); color: #FFF5E6; border: 1px solid rgba(212, 160, 23, 0.4); border-radius: 6px; cursor: pointer; font-size: 14px; min-width: 220px; backdrop-filter: blur(4px); display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease; }
+        .custom-select-header:hover { border-color: #d4a017; }
+        .custom-select-list { position: absolute; bottom: 100%; left: 0; margin-bottom: 5px; background: rgba(26, 21, 20, 0.95); border: 1px solid rgba(212, 160, 23, 0.4); border-radius: 6px; max-height: 450px; overflow-y: auto; display: none; min-width: 100%; width: max-content; z-index: 300; box-shadow: 0 -5px 20px rgba(0,0,0,0.7); }
+        .custom-select-list.open { display: block; }
+        
+        /* 🌟 升级：三级联动策展控制台 */
+        .batch-controls { display: flex; flex-direction: column; background: rgba(30, 25, 20, 1); border-bottom: 1px solid #d4a017; position: sticky; top: 0; z-index: 10; }
+        .batch-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; border-bottom: 1px dashed rgba(212, 160, 23, 0.15); }
+        .batch-row:last-child { border-bottom: none; }
+        .batch-label { color: #bbb; font-size: 13px; }
+        .batch-btns span { cursor: pointer; font-size: 12px; color: #d4a017; font-weight: bold; padding: 4px 8px; border-radius: 4px; margin-left: 5px; background: rgba(212, 160, 23, 0.1); transition: all 0.2s; }
+        .batch-btns span:hover { background: #d4a017; color: #000; }
+        
+        .custom-select-item { padding: 10px 14px; cursor: pointer; color: #E6D2B4; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(212, 160, 23, 0.15); font-size: 14px; transition: background 0.2s ease; }
+        .custom-select-item:hover { background: rgba(212, 160, 23, 0.2); color: #FFF; }
+        .custom-select-item input[type="checkbox"] { cursor: pointer; width: 16px; height: 16px; accent-color: #d4a017; flex-shrink: 0; }
+        .custom-select-item span.art-name { flex-grow: 1; white-space: nowrap; }
+        
+        .custom-select-list::-webkit-scrollbar { width: 6px; }
+        .custom-select-list::-webkit-scrollbar-thumb { background: #d4a017; border-radius: 3px; }
+
+        /* 作品志 */
         #details-panel { position: absolute; right: -450px; top: 0; width: 400px; height: 100%; background: rgba(26, 21, 20, 0.95); border-left: 1px solid rgba(212, 160, 23, 0.3); box-shadow: -10px 0 40px rgba(0,0,0,0.8); padding: 40px 30px; transition: right 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); z-index: 205; overflow-y: auto; line-height: 2.2; font-size: 17px; text-align: justify; }
         body.show-details #details-panel { right: 0; }
         #details-panel::-webkit-scrollbar { width: 6px; }
@@ -60,39 +87,50 @@
 <body>
 
     <div id="breath-shadow"></div>
-    <div id="main-viewer" class="osd-viewer" data-transition="fade"></div>
+    <div id="main-viewer" class="osd-viewer effect-fade"></div>
 
     <div id="header-zone"><div id="art-title">加载中...</div></div>
     
     <div id="control-bar">
-        <select id="sel-dynasty" onchange="updateAuthor()" style="max-width: 120px;"></select>
-        <select id="sel-author" onchange="updateArtwork()" style="max-width: 140px;"></select>
-        <select id="sel-artwork" onchange="switchArtByUser(this.value)" style="max-width: 250px;"></select>
+        <select id="sel-dynasty" onchange="onDynastyChange()" style="max-width: 120px;"></select>
+        <select id="sel-author" onchange="onAuthorChange()" style="max-width: 140px;"></select>
+
+        <div class="custom-select-container" id="custom-artwork-select">
+            <div class="custom-select-header" id="custom-artwork-header" onclick="toggleArtworkDropdown(event)">加载中...</div>
+            <div class="custom-select-list" id="custom-artwork-list"></div>
+        </div>
         
         <select id="sel-transition" onchange="changeTransition()">
-            <option value="fade">淡入淡出</option>
-            <option value="slide-up">自下浮现</option>
-            <option value="zoom">中心缩放</option>
+            <option value="effect-fade" selected>✨ 淡入淡出</option>
+            <option value="effect-slide">🪟 向上推移</option>
+            <option value="effect-zoom">🔍 放大浮现</option>
+            <option value="effect-none">⚡ 直接切换</option>
         </select>
-
+        
+        <select id="sel-play-mode" onchange="changePlayMode()" style="font-weight: bold; color: #d4a017;">
+            <option value="stop" selected>⏹ 停止轮播</option>
+            <option value="all">▶ 全部轮播</option>
+            <option value="selected">☑ 选定轮播</option>
+        </select>
+        
         <select id="sel-interval" onchange="changeInterval()">
             <option value="10000">10 秒</option>
             <option value="30000">30 秒</option>
-            <option value="60000">1 分钟</option>
+            <option value="60000" selected>1 分钟</option>
             <option value="180000">3 分钟</option>
             <option value="300000">5 分钟</option>
             <option value="600000">10 分钟</option>
+            <option value="1200000">20 分钟</option>
             <option value="1800000">30 分钟</option>
             <option value="3600000">60 分钟</option>
         </select>
         
-        <button id="play-btn" class="btn" onclick="togglePlay()">轮播 开/关</button>
         <button class="btn" onclick="resetView()">全景 / 归位</button>
         <button id="info-btn" class="btn" onclick="toggleDetails(event)">作品志</button>
         <button id="fs-btn" class="btn" onclick="toggleFullscreen(event)">全屏</button>
-
-        <select onchange="if(this.value) window.location.href=this.value;" style="margin-left: 15px; color: #d4a017; border-color: #d4a017; font-weight: bold;">
-            <option value="" disabled selected>🏛️ 切换展馆...</option>
+        
+        <select id="sel-hall" onchange="if(this.value) window.location.href=this.value;" style="font-weight: bold; margin-left: 15px;">
+            <option value="">🏛 切换展馆...</option>
             <option value="lz_index.html">仰观高山 (立轴馆)</option>
             <option value="sj_index.html">步入长卷 (手卷馆)</option>
             <option value="index.html">退回大门 (总大堂)</option>
@@ -126,34 +164,23 @@
 
         var viewer, slideTimer, idleTimer;
         var currentArtIndex = 0;
-        var isPlaying = false; 
         var isZoomed = false; 
         var playInterval = 60000; 
         var isHoveringUI = false; 
         var isCanvasInteracting = false; 
         var catalogTree = {}; 
+        var isArtworkDropdownOpen = false;
+        
+        var playMode = 'stop'; 
+        var lastPlayMode = 'all'; 
 
         function initGallery() {
             if (!artworks || artworks.length === 0) return;
             
-            var savedTransition = localStorage.getItem('lz_transition') || 'fade';
-            var savedInterval = localStorage.getItem('lz_interval') || '60000';
-            var savedIsPlaying = localStorage.getItem('lz_isPlaying') === 'true';
-
-            document.getElementById('sel-transition').value = savedTransition;
-            document.getElementById('main-viewer').setAttribute('data-transition', savedTransition);
-            
-            var selInterval = document.getElementById('sel-interval');
-            if([...selInterval.options].some(o => o.value === savedInterval)) {
-                selInterval.value = savedInterval;
-            }
-            playInterval = parseInt(selInterval.value);
-
-            isPlaying = savedIsPlaying;
-            updatePlayBtnUI(); 
-
             catalogTree = {};
             artworks.forEach(function(art, index) {
+                if(typeof art.selectedForSlide === 'undefined') art.selectedForSlide = true; 
+                
                 var parts = (art.category || "未分类").split(" - ");
                 var dynasty = parts[0] ? parts[0].trim() : "未分类";
                 var author = parts[1] ? parts[1].trim() : "其他作者";
@@ -171,68 +198,200 @@
                 selDynasty.appendChild(opt);
             }
 
-            var currentArt = artworks[currentArtIndex];
-            var currParts = (currentArt.category || "未分类").split(" - ");
-            selDynasty.value = currParts[0] ? currParts[0].trim() : "未分类";
-            
-            updateAuthor(currParts[1] ? currParts[1].trim() : "其他作者", currentArtIndex); 
+            var firstDynasty = Object.keys(catalogTree)[0];
+            if(firstDynasty) {
+                selDynasty.value = firstDynasty;
+                var selAuthor = document.getElementById('sel-author');
+                selAuthor.innerHTML = '';
+                for (var a in catalogTree[firstDynasty]) {
+                     var aOpt = document.createElement('option');
+                     aOpt.value = a; aOpt.text = a;
+                     selAuthor.appendChild(aOpt);
+                }
+            }
 
             loadArt(currentArtIndex);
             setupIdleTimer(); 
             
+            window.addEventListener('click', function(e) {
+                var container = document.getElementById('custom-artwork-select');
+                var list = document.getElementById('custom-artwork-list');
+                if (list && list.classList.contains('open') && (!container || !container.contains(e.target))) {
+                    list.classList.remove('open');
+                    isArtworkDropdownOpen = false;
+                    isHoveringUI = false;
+                    startIdle();
+                }
+            });
+
             window.addEventListener('resize', function() { if(viewer) viewer.forceRedraw(); });
         }
 
-        function updateAuthor(targetAuthor, targetArtIndex) {
-            var selDynasty = document.getElementById('sel-dynasty');
-            var selAuthor = document.getElementById('sel-author');
-            if (!selDynasty || !selAuthor) return; 
-
-            var dynasty = selDynasty.value;
-            var authors = catalogTree[dynasty];
-            if (!authors) return; 
-
-            selAuthor.innerHTML = '';
-            var firstAuthor = null;
-
-            for (var a in authors) {
-                if (!firstAuthor) firstAuthor = a;
+        function onDynastyChange() {
+            var dynasty = document.getElementById('sel-dynasty').value;
+            var firstAuthor = Object.keys(catalogTree[dynasty])[0];
+            document.getElementById('sel-author').innerHTML = ''; 
+            for (var a in catalogTree[dynasty]) {
                 var opt = document.createElement('option');
                 opt.value = a; opt.text = a;
-                selAuthor.appendChild(opt);
+                document.getElementById('sel-author').appendChild(opt);
             }
-
-            selAuthor.value = (targetAuthor && authors[targetAuthor]) ? targetAuthor : firstAuthor;
-            updateArtwork(targetArtIndex); 
+            document.getElementById('sel-author').value = firstAuthor;
+            onAuthorChange();
         }
 
-        function updateArtwork(targetArtIndex) {
+        function onAuthorChange() {
+            var dynasty = document.getElementById('sel-dynasty').value;
+            var author = document.getElementById('sel-author').value;
+            var firstArtIndex = catalogTree[dynasty][author][0].index;
+            switchArt(firstArtIndex); 
+        }
+
+        // 🌟 核心升级：三层级联动批处理逻辑
+        window.toggleSelection = function(level, state, e) {
+            e.stopPropagation(); // 防止菜单关闭
+            var currentDynasty = document.getElementById('sel-dynasty').value;
+            var currentAuthor = document.getElementById('sel-author').value;
+
+            artworks.forEach(function(art) {
+                var parts = (art.category || "未分类").split(" - ");
+                var d = parts[0] ? parts[0].trim() : "未分类";
+                var a = parts[1] ? parts[1].trim() : "其他作者";
+
+                if (level === 'global') {
+                    // 全馆操作
+                    art.selectedForSlide = state;
+                } else if (level === 'dynasty') {
+                    // 朝代级操作
+                    if (d === currentDynasty) art.selectedForSlide = state;
+                } else if (level === 'author') {
+                    // 作者级操作
+                    if (d === currentDynasty && a === currentAuthor) art.selectedForSlide = state;
+                }
+            });
+            syncMenusSilently(currentArtIndex); 
+        };
+
+        function syncMenusSilently(index) {
+            var art = artworks[index];
+            var parts = (art.category || "未分类").split(" - ");
+            var dynasty = parts[0] ? parts[0].trim() : "未分类";
+            var author = parts[1] ? parts[1].trim() : "其他作者";
+
             var selDynasty = document.getElementById('sel-dynasty');
             var selAuthor = document.getElementById('sel-author');
-            var selArtwork = document.getElementById('sel-artwork');
-            if (!selDynasty || !selAuthor || !selArtwork) return; 
 
-            var dynasty = selDynasty.value;
-            var author = selAuthor.value;
-            if (!catalogTree[dynasty] || !catalogTree[dynasty][author]) return; 
-
-            selArtwork.innerHTML = '';
-            var arts = catalogTree[dynasty][author];
-            var firstIndex = null;
-
-            arts.forEach(function(item) {
-                if (firstIndex === null) firstIndex = item.index;
-                var opt = document.createElement('option');
-                opt.value = item.index; opt.text = item.name;
-                selArtwork.appendChild(opt);
-            });
-
-            if (targetArtIndex !== undefined && targetArtIndex !== null) {
-                selArtwork.value = targetArtIndex; 
-            } else {
-                selArtwork.value = firstIndex;
-                switchArtByUser(firstIndex); 
+            if (selDynasty.value !== dynasty || selAuthor.options.length === 0) {
+                selDynasty.value = dynasty;
+                selAuthor.innerHTML = '';
+                if(catalogTree[dynasty]) {
+                    for (var a in catalogTree[dynasty]) {
+                        var opt = document.createElement('option');
+                        opt.value = a; opt.text = a;
+                        selAuthor.appendChild(opt);
+                    }
+                }
             }
+            selAuthor.value = author;
+
+            var listEl = document.getElementById('custom-artwork-list');
+            listEl.innerHTML = '';
+            
+            // 🌟 注入三级联动策展台 HTML
+            var actionsDiv = document.createElement('div');
+            actionsDiv.className = 'batch-controls';
+            
+            var actionsHTML = 
+                '<div class="batch-row">' +
+                    '<span class="batch-label">🏛 全馆所有画作</span>' +
+                    '<div class="batch-btns">' +
+                        '<span onclick="toggleSelection(\'global\', true, event)">☑ 全选</span>' +
+                        '<span onclick="toggleSelection(\'global\', false, event)">☐ 清空</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="batch-row">' +
+                    '<span class="batch-label">📜 当前朝代 (' + dynasty + ')</span>' +
+                    '<div class="batch-btns">' +
+                        '<span onclick="toggleSelection(\'dynasty\', true, event)">☑ 全选</span>' +
+                        '<span onclick="toggleSelection(\'dynasty\', false, event)">☐ 清空</span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="batch-row">' +
+                    '<span class="batch-label">🖌 当前作者 (' + author + ')</span>' +
+                    '<div class="batch-btns">' +
+                        '<span onclick="toggleSelection(\'author\', true, event)">☑ 全选</span>' +
+                        '<span onclick="toggleSelection(\'author\', false, event)">☐ 清空</span>' +
+                    '</div>' +
+                '</div>';
+                
+            actionsDiv.innerHTML = actionsHTML;
+            listEl.appendChild(actionsDiv);
+
+            if(catalogTree[dynasty] && catalogTree[dynasty][author]) {
+                var arts = catalogTree[dynasty][author];
+                arts.forEach(function(item) {
+                    var div = document.createElement('div');
+                    div.className = 'custom-select-item';
+
+                    var chk = document.createElement('input');
+                    chk.type = 'checkbox';
+                    chk.checked = artworks[item.index].selectedForSlide;
+                    chk.onclick = function(e) {
+                        e.stopPropagation(); 
+                        artworks[item.index].selectedForSlide = chk.checked;
+                        if (currentArtIndex === item.index) updateArtworkHeader();
+                    };
+
+                    var span = document.createElement('span');
+                    span.className = 'art-name';
+                    span.innerText = item.name;
+
+                    div.onclick = function(e) {
+                        if (e.target !== chk) {
+                            document.getElementById('custom-artwork-list').classList.remove('open');
+                            isArtworkDropdownOpen = false;
+                            startIdle();
+                            switchArt(item.index);
+                        }
+                    };
+
+                    div.appendChild(chk);
+                    div.appendChild(span);
+                    listEl.appendChild(div);
+                });
+            }
+
+            updateArtworkHeader();
+        }
+
+        function updateArtworkHeader() {
+            var art = artworks[currentArtIndex];
+            if (!art) return;
+            var header = document.getElementById('custom-artwork-header');
+            var checkMark = art.selectedForSlide ? '<span style="color:#d4a017; font-weight:bold; margin-right:8px;">☑</span>' : '<span style="color:#888; font-weight:bold; margin-right:8px;">☐</span>';
+            header.innerHTML = checkMark + art.name + ' <span style="font-size:10px; margin-left:10px;">▲</span>';
+        }
+
+        function toggleArtworkDropdown(e) {
+            e.stopPropagation();
+            var list = document.getElementById('custom-artwork-list');
+            list.classList.toggle('open');
+            isArtworkDropdownOpen = list.classList.contains('open');
+
+            if(isArtworkDropdownOpen) {
+                clearIdle(); 
+                isHoveringUI = true; 
+            } else {
+                isHoveringUI = false;
+                startIdle();
+            }
+        }
+
+        function changeTransition() {
+            var effect = document.getElementById('sel-transition').value;
+            var viewerEl = document.getElementById('main-viewer');
+            viewerEl.classList.remove('effect-fade', 'effect-slide', 'effect-zoom', 'effect-none');
+            viewerEl.classList.add(effect);
         }
 
         function loadArt(index) {
@@ -240,8 +399,10 @@
             var art = artworks[index];
             if (!art) return;
             
+            syncMenusSilently(index);
+            
             var viewerEl = document.getElementById('main-viewer');
-            viewerEl.classList.remove('loaded'); 
+            viewerEl.classList.remove('loaded');
             
             document.getElementById('art-title').innerText = art.name;
             document.getElementById('full-desc').innerText = art.desc;
@@ -277,7 +438,7 @@
                 });
 
                 viewer.addHandler('open', function() {
-                    viewerEl.classList.add('loaded'); 
+                    viewerEl.classList.add('loaded');
                     resetView(); 
                     manageSlideshow(); 
                 });
@@ -289,96 +450,79 @@
                     manageSlideshow(); 
                 });
 
-                viewer.addHandler('canvas-press', function() {
-                    isCanvasInteracting = true; 
-                    clearIdle(); 
-                });
-                
-                viewer.addHandler('canvas-release', function() {
-                    isCanvasInteracting = false; 
-                    startIdle(); 
-                });
-
+                viewer.addHandler('canvas-press', function() { isCanvasInteracting = true; clearIdle(); });
+                viewer.addHandler('canvas-release', function() { isCanvasInteracting = false; startIdle(); });
                 viewer.addHandler('canvas-drag', clearIdle);
                 viewer.addHandler('canvas-pinch', clearIdle);
 
-                // 4. 单击背景：防误触纯净版
                 viewer.addHandler('canvas-click', function(event) {
                     if (!event.quick) return; 
-                    event.preventDefaultAction = true; // 阻止引擎默认的点击放大行为
-                    
-                    // 如果正在看作品志，点击画作只负责收起抽屉，不做任何其他事
+                    event.preventDefaultAction = true; 
                     if (document.body.classList.contains('show-details')) {
                         toggleDetails(event); 
+                    } else {
+                        var selMode = document.getElementById('sel-play-mode');
+                        if (playMode !== 'stop') {
+                            selMode.value = 'stop';
+                        } else {
+                            selMode.value = lastPlayMode;
+                        }
+                        changePlayMode();
                     }
-                    // 🛑 这里已经去掉了 togglePlay()，彻底根除“点按就误触播放/暂停”的乱象！
                 });
 
-            }, 800); 
+            }, 600); 
+        }
+
+        function getNextArtIndex() {
+            var startIdx = currentArtIndex;
+            for(var i=1; i<=artworks.length; i++) {
+                var nextIdx = (startIdx + i) % artworks.length;
+                if(playMode === 'all') return nextIdx;
+                if(playMode === 'selected' && artworks[nextIdx].selectedForSlide) return nextIdx;
+            }
+            return -1; 
         }
 
         function manageSlideshow() {
             clearTimeout(slideTimer);
             var isReading = document.body.classList.contains('show-details');
             
-            if (isPlaying && !isZoomed && !isReading) {
+            if (playMode !== 'stop' && !isZoomed && !isReading) {
                 slideTimer = setTimeout(function() {
-                    var nextIdx = (currentArtIndex + 1) % artworks.length;
+                    var nextIdx = getNextArtIndex();
                     
-                    var nextArt = artworks[nextIdx];
-                    var parts = (nextArt.category || "未分类").split(" - ");
-                    var targetDynasty = parts[0] ? parts[0].trim() : "未分类";
-                    var targetAuthor = parts[1] ? parts[1].trim() : "其他作者";
-                    
-                    document.getElementById('sel-dynasty').value = targetDynasty;
-                    updateAuthor(targetAuthor, nextIdx); 
-                    loadArt(nextIdx); 
-                    
+                    if (nextIdx !== -1 && nextIdx !== currentArtIndex) {
+                        loadArt(nextIdx); 
+                    } else if (nextIdx === currentArtIndex && playMode === 'selected' && artworks[nextIdx].selectedForSlide) {
+                        manageSlideshow(); 
+                    } else if (nextIdx === -1) {
+                        document.getElementById('sel-play-mode').value = 'stop';
+                        changePlayMode();
+                    }
                 }, playInterval);
             }
         }
 
-        function togglePlay() {
-            isPlaying = !isPlaying;
-            localStorage.setItem('lz_isPlaying', isPlaying); 
-            updatePlayBtnUI();
-            
-            if (isPlaying) {
+        function changePlayMode() {
+            playMode = document.getElementById('sel-play-mode').value;
+            if (playMode !== 'stop') lastPlayMode = playMode;
+
+            if (playMode !== 'stop') {
                 resetView(); 
                 document.body.classList.remove('show-details');
             }
             manageSlideshow();
         }
 
-        function updatePlayBtnUI() {
-            var btn = document.getElementById('play-btn');
-            if (isPlaying) {
-                btn.innerText = "轮播 开";
-                btn.classList.add('active-play');
-            } else {
-                btn.innerText = "轮播 关";
-                btn.classList.remove('active-play');
-            }
-        }
-
         function changeInterval() {
             playInterval = parseInt(document.getElementById('sel-interval').value);
-            localStorage.setItem('lz_interval', playInterval); 
             manageSlideshow(); 
         }
 
-        function changeTransition() {
-            var t = document.getElementById('sel-transition').value;
-            document.getElementById('main-viewer').setAttribute('data-transition', t);
-            localStorage.setItem('lz_transition', t); 
-        }
-
-        function switchArtByUser(val) { 
-            isPlaying = false; 
-            localStorage.setItem('lz_isPlaying', 'false');
-            updatePlayBtnUI();
-            
-            document.body.classList.remove('show-details'); 
+        function switchArt(val) { 
+            document.getElementById('sel-play-mode').value = 'stop';
+            changePlayMode();
             loadArt(parseInt(val)); 
         }
 
