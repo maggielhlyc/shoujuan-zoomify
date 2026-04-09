@@ -302,14 +302,16 @@
                 viewer.addHandler('canvas-drag', clearIdle);
                 viewer.addHandler('canvas-pinch', clearIdle);
 
+                // 4. 单击背景：防误触纯净版
                 viewer.addHandler('canvas-click', function(event) {
                     if (!event.quick) return; 
-                    event.preventDefaultAction = true; 
+                    event.preventDefaultAction = true; // 阻止引擎默认的点击放大行为
+                    
+                    // 如果正在看作品志，点击画作只负责收起抽屉，不做任何其他事
                     if (document.body.classList.contains('show-details')) {
                         toggleDetails(event); 
-                    } else {
-                        togglePlay(); 
                     }
+                    // 🛑 这里已经去掉了 togglePlay()，彻底根除“点按就误触播放/暂停”的乱象！
                 });
 
             }, 800); 
